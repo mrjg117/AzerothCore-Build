@@ -1,0 +1,69 @@
+name: Build AzerothCore
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'modules.txt'
+      - 'Dockerfile'
+      - 'patches/**'
+  workflow_dispatch:
+
+env:
+  TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
+  TCR_TOKEN: ${{ secrets.TCR_TOKEN }}
+  TCR_NAMESPACE: ${{ secrets.TCR_NAMESPACE }}
+  SERVER_IMAGE: azerothcore-server
+  DATA_IMAGE: azerothcore-data
+
+jobs:
+  build-server:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Login to Tencent Cloud Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ccr.ccs.tencentyun.com
+        username: ${{ secrets.TCR_USERNAME }}
+        password: ${{ secrets.TCR_TOKEN }}
+    
+    - name: Build and push server image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/${{ env.SERVER_IMAGE }}:latest
+          ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/${{ env.SERVER_IMAGE }}:${{ github.sha }}
+
+  # 数据镜像单独构建（可选，手动触发）
+  build-data:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_data == 'true'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Login to Tencent Cloud Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ccr.ccs.tencentyun.com
+        username: ${{ secrets.TCR_USERNAME }}
+        password: ${{ secrets.TCR_TOKEN }}
+    
+    - name: Build and push data image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile.data
+        push: true
+        build-args: |
+          CLIENT_DATA_URL=${{ secrets.CLIENT_DATA_URL }}
+        tags: |
+          ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/${{ env.DATA_IMAGE }}:latest

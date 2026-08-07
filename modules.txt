@@ -1,0 +1,14 @@
+# 在这里添加你想要的模组仓库地址
+# 每行一个 Git 仓库 URL，以 # 开头的行会被忽略
+
+# Playerbots 模组
+https://github.com/mod-playerbots/mod-playerbots.git
+
+# 传送模组
+https://github.com/azerothcore/mod-transmog.git
+
+# 其他常用模组（取消注释需要的）
+# https://github.com/azerothcore/mod-solo-lfg.git
+# https://github.com/azerothcore/mod-eluna.git
+# https://github.com/azerothcore/mod-autobalance.git
+# https://github.com/azerothcore/mod-learn-spells.git

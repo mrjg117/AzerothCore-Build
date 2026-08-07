@@ -1,0 +1,32 @@
+name: Build Map Data Image
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Dockerfile.data'
+      - '.github/workflows/build-data.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Login to Tencent Cloud TCR
+      run: |
+        docker login ccr.ccs.tencentyun.com -u ${{ secrets.TCR_USERNAME }} -p ${{ secrets.TCR_TOKEN }}
+    
+    - name: Build and push map data image
+      run: |
+        docker build \
+          -t ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/azerothcore-data:latest \
+          -t ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/azerothcore-data:${{ github.sha }} \
+          -f Dockerfile.data \
+          --build-arg CLIENT_DATA_URL="${{ secrets.CLIENT_DATA_URL }}" \
+          .
+        docker push ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/azerothcore-data:latest
+        docker push ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/azerothcore-data:${{ github.sha }}

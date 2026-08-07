@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  db:
+    image: mysql:8.0
+    container_name: azerothcore-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - azerothcore
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 地图数据镜像（可选，如果配置了 DATA_IMAGE）
+  # 取消注释下面的内容，并注释掉 client-data volume
+  # data:
+  #   image: ${DATA_IMAGE}
+  #   container_name: azerothcore-data
+  #   volumes:
+  #     - /data
+
+  # AzerothCore 服务端
+  worldserver:
+    image: ccr.ccs.tencentyun.com/${TCR_NAMESPACE:-your-namespace}/azerothcore-custom:latest
+    container_name: azerothcore-worldserver
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      SERVER_ADDRESS: ${SERVER_ADDRESS:-127.0.0.1}
+      SERVER_NAME: ${SERVER_NAME:-My AzerothCore Server}
+      CLIENT_DATA_URL: ${CLIENT_DATA_URL:-}
+    ports:
+      - "8085:8085"
+      - "8086:8086"
+    volumes:
+      # 方式1: 本地挂载（默认）
+      - ./data:/azerothcore/env/dist/data
+      # 方式2: 地图镜像（取消注释，并注释掉上面的）
+      # - data:/azerothcore/env/dist/data:ro
+    networks:
+      - azerothcore
+
+  # 认证服务器
+  authserver:
+    image: ccr.ccs.tencentyun.com/${TCR_NAMESPACE:-your-namespace}/azerothcore-custom:latest
+    container_name: azerothcore-authserver
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      SERVER_ADDRESS: ${SERVER_ADDRESS:-127.0.0.1}
+    ports:
+      - "3724:3724"
+    volumes:
+      - ./logs:/azerothcore/env/dist/logs
+      - ./config:/azerothcore/env/dist/etc
+    networks:
+      - azerothcore
+
+networks:
+  azerothcore:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  # data:
+  #   external: true
