@@ -1,9 +1,11 @@
 # ============================================================
-# 本地部署 —— 从腾讯云 TCR 拉取官方构建镜像运行
+# 本地部署 —— 从腾讯云 TCR 拉取三个独立镜像运行
 # ------------------------------------------------------------
-# ・镜像来自 TCR（build.yml 推上去的官方构建产物）。
-# ・所有 *.conf 走运行时挂载（含 playerbots.conf），不烤进镜像。
-# ・客户端数据（maps/vmaps/mmaps/dbc）需另行提取后挂到 ./data，不进镜像。
+# ・wotlk-server ：官方核心（build.yml 构建）
+# ・wotlk-maps   ：地图数据（build-maps.yml 独立构建）
+# ・wotlk-config ：默认配置（build-config.yml 独立构建）
+# ・deploy.sh 已把 maps/config 镜像内容导出到本地 ./data、./config，
+#   此处整体挂载；不烤进服务器镜像、不与服务器统一更新。
 # ============================================================
 
 services:
@@ -22,33 +24,30 @@ services:
       start_period: 30s
 
   authserver:
-    image: ${TCR_IMAGE:-ccr.ccs.tencentyun.com/your-ns/azerothcore:latest}
+    image: ${TCR_IMAGE_SERVER:-ccr.ccs.tencentyun.com/your-ns/wotlk-server:latest}
     command: ["/azerothcore/bin/authserver"]
     volumes:
-      - ./config/worldserver.conf:/azerothcore/etc/worldserver.conf:ro
-      - ./config/authserver.conf:/azerothcore/etc/authserver.conf:ro
+      - ./config:/azerothcore/etc:ro
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
   worldserver:
-    image: ${TCR_IMAGE:-ccr.ccs.tencentyun.com/your-ns/azerothcore:latest}
+    image: ${TCR_IMAGE_SERVER:-ccr.ccs.tencentyun.com/your-ns/wotlk-server:latest}
     command: ["/azerothcore/bin/worldserver"]
     volumes:
-      - ./config/worldserver.conf:/azerothcore/etc/worldserver.conf:ro
-      - ./config/authserver.conf:/azerothcore/etc/authserver.conf:ro
-      - ./config/playerbots.conf:/azerothcore/etc/playerbots.conf:ro
-      - ./data:/azerothcore/data
+      - ./data:/azerothcore/data:ro
+      - ./config:/azerothcore/etc:ro
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
-# 使用：
-#   1. 在本文件同目录建 config/，放入 worldserver.conf / authserver.conf / playerbots.conf
-#      （worldserver.conf 里把 DB 指向上面 db 服务的 3306，LoginDatabaseInfo 等按官方模板填）。
-#   2. 提取客户端数据到 ./data（官方 ac-client-data 流程 / 用镜像内的 mapextractor 等工具）。
-#   3. 初始化数据库：导入官方 sql（auth / world / 模组 SQL），参考 AzerothCore 官方 wiki。
-#   4. 设好 TCR_IMAGE 环境变量（或直接改上面 image 行），然后：
-#        docker compose up -d
+# 使用（推荐用 deploy.sh 一键）：
+#   1. 设好镜像地址：export REG=ccr.ccs.tencentyun.com NS=azerothcore
+#      （或在 .env 里写 REG/NS；也可以直接改上面的 image 行）
+#   2. 执行：  ./deploy.sh up          # 拉三镜像 + 导出 data/config + 启动
+#             ./deploy.sh init-db     # 首次初始化数据库（需联网拉 TDB）
+#   3. 运行时改配置：直接编辑 ./config/*.conf，重启 worldserver 生效，
+#      无需重新构建任何镜像。

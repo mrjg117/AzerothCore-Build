@@ -41,8 +41,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}:latest
-            ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}:${{ github.sha }}
+            ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-server:latest
+            ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-server:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -51,7 +51,8 @@ jobs:
 #   TCR_USERNAME     腾讯云 TCR 登录名（通常为 <APPID>$<repo> 或账号邮箱，以 TCR 控制台为准）
 #   TCR_PASSWORD     腾讯云 TCR 密码 / 临时令牌
 #   TCR_NAMESPACE    镜像命名空间
-#   TCR_REPOSITORY   镜像仓库名（如 azerothcore）
+# 镜像仓库名固定为 wotlk-server（本 workflow 推送），另两个镜像由
+# build-maps.yml / build-config.yml 推送，仓库名为 wotlk-maps / wotlk-config。
 #
 # 说明：AzerothCore 全量编译耗时较长，GitHub 免费 runner（2-4 核）可能偏慢；
 # 如需更快/更稳，可在 repo 启用 GitHub 大型 runner 或自托管 runner。
