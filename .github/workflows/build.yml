@@ -1,69 +1,57 @@
-name: Build AzerothCore
+# ============================================================
+# GitHub Actions —— 官方编译 + 推送到腾讯云 TCR
+# ------------------------------------------------------------
+# ・编译在 GitHub（ubuntu runner）跑，使用的是官方 azerothcore/ac 镜像。
+# ・编译完成后把镜像推到你自己的腾讯云镜像仓库（TCR）。
+# ・与"官方"无关的两处自定义（CI 位置 / 镜像存储地）都不影响产物官方性。
+# ============================================================
+
+name: Build & Push (Tencent TCR)
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'modules.txt'
-      - 'Dockerfile'
-      - 'patches/**'
+    branches: [ main, master ]
+    tags: [ 'v*' ]
   workflow_dispatch:
 
-env:
-  TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
-  TCR_TOKEN: ${{ secrets.TCR_TOKEN }}
-  TCR_NAMESPACE: ${{ secrets.TCR_NAMESPACE }}
-  SERVER_IMAGE: azerothcore-server
-  DATA_IMAGE: azerothcore-data
+permissions:
+  contents: read
 
 jobs:
-  build-server:
+  build:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Login to Tencent Cloud Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ccr.ccs.tencentyun.com
-        username: ${{ secrets.TCR_USERNAME }}
-        password: ${{ secrets.TCR_TOKEN }}
-    
-    - name: Build and push server image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        push: true
-        tags: |
-          ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/${{ env.SERVER_IMAGE }}:latest
-          ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/${{ env.SERVER_IMAGE }}:${{ github.sha }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  # 数据镜像单独构建（可选，手动触发）
-  build-data:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_data == 'true'
-    
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    
-    - name: Login to Tencent Cloud Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ccr.ccs.tencentyun.com
-        username: ${{ secrets.TCR_USERNAME }}
-        password: ${{ secrets.TCR_TOKEN }}
-    
-    - name: Build and push data image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile.data
-        push: true
-        build-args: |
-          CLIENT_DATA_URL=${{ secrets.CLIENT_DATA_URL }}
-        tags: |
-          ccr.ccs.tencentyun.com/${{ secrets.TCR_NAMESPACE }}/${{ env.DATA_IMAGE }}:latest
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Tencent Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.TCR_REGISTRY }}
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}:latest
+            ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/${{ secrets.TCR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# 所需 GitHub Secrets（仓库 Settings → Secrets → Actions）：
+#   TCR_REGISTRY     e.g. ccr.ccs.tencentyun.com
+#   TCR_USERNAME     腾讯云 TCR 登录名（通常为 <APPID>$<repo> 或账号邮箱，以 TCR 控制台为准）
+#   TCR_PASSWORD     腾讯云 TCR 密码 / 临时令牌
+#   TCR_NAMESPACE    镜像命名空间
+#   TCR_REPOSITORY   镜像仓库名（如 azerothcore）
+#
+# 说明：AzerothCore 全量编译耗时较长，GitHub 免费 runner（2-4 核）可能偏慢；
+# 如需更快/更稳，可在 repo 启用 GitHub 大型 runner 或自托管 runner。

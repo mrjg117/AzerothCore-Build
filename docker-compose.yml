@@ -1,76 +1,54 @@
-version: '3.8'
+# ============================================================
+# 本地部署 —— 从腾讯云 TCR 拉取官方构建镜像运行
+# ------------------------------------------------------------
+# ・镜像来自 TCR（build.yml 推上去的官方构建产物）。
+# ・所有 *.conf 走运行时挂载（含 playerbots.conf），不烤进镜像。
+# ・客户端数据（maps/vmaps/mmaps/dbc）需另行提取后挂到 ./data，不进镜像。
+# ============================================================
 
 services:
-  # MySQL 数据库
   db:
-    image: mysql:8.0
-    container_name: azerothcore-db
+    image: mariadb:10.11
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      MARIADB_ROOT_PASSWORD: acore
+      MARIADB_DATABASE: acore_auth
     volumes:
-      - mysql-data:/var/lib/mysql
-    networks:
-      - azerothcore
+      - ./db:/var/lib/mysql
+    ports:
+      - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
 
-  # 地图数据镜像（可选，如果配置了 DATA_IMAGE）
-  # 取消注释下面的内容，并注释掉 client-data volume
-  # data:
-  #   image: ${DATA_IMAGE}
-  #   container_name: azerothcore-data
-  #   volumes:
-  #     - /data
-
-  # AzerothCore 服务端
-  worldserver:
-    image: ccr.ccs.tencentyun.com/${TCR_NAMESPACE:-your-namespace}/azerothcore-custom:latest
-    container_name: azerothcore-worldserver
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
-      SERVER_ADDRESS: ${SERVER_ADDRESS:-127.0.0.1}
-      SERVER_NAME: ${SERVER_NAME:-My AzerothCore Server}
-      CLIENT_DATA_URL: ${CLIENT_DATA_URL:-}
-    ports:
-      - "8085:8085"
-      - "8086:8086"
-    volumes:
-      # 方式1: 本地挂载（默认）
-      - ./data:/azerothcore/env/dist/data
-      # 方式2: 地图镜像（取消注释，并注释掉上面的）
-      # - data:/azerothcore/env/dist/data:ro
-    networks:
-      - azerothcore
-
-  # 认证服务器
   authserver:
-    image: ccr.ccs.tencentyun.com/${TCR_NAMESPACE:-your-namespace}/azerothcore-custom:latest
-    container_name: azerothcore-authserver
+    image: ${TCR_IMAGE:-ccr.ccs.tencentyun.com/your-ns/azerothcore:latest}
+    command: ["/azerothcore/bin/authserver"]
+    volumes:
+      - ./config/worldserver.conf:/azerothcore/etc/worldserver.conf:ro
+      - ./config/authserver.conf:/azerothcore/etc/authserver.conf:ro
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
-      SERVER_ADDRESS: ${SERVER_ADDRESS:-127.0.0.1}
-    ports:
-      - "3724:3724"
+    restart: unless-stopped
+
+  worldserver:
+    image: ${TCR_IMAGE:-ccr.ccs.tencentyun.com/your-ns/azerothcore:latest}
+    command: ["/azerothcore/bin/worldserver"]
     volumes:
-      - ./logs:/azerothcore/env/dist/logs
-      - ./config:/azerothcore/env/dist/etc
-    networks:
-      - azerothcore
+      - ./config/worldserver.conf:/azerothcore/etc/worldserver.conf:ro
+      - ./config/authserver.conf:/azerothcore/etc/authserver.conf:ro
+      - ./config/playerbots.conf:/azerothcore/etc/playerbots.conf:ro
+      - ./data:/azerothcore/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
-networks:
-  azerothcore:
-    driver: bridge
-
-volumes:
-  mysql-data:
-  # data:
-  #   external: true
+# 使用：
+#   1. 在本文件同目录建 config/，放入 worldserver.conf / authserver.conf / playerbots.conf
+#      （worldserver.conf 里把 DB 指向上面 db 服务的 3306，LoginDatabaseInfo 等按官方模板填）。
+#   2. 提取客户端数据到 ./data（官方 ac-client-data 流程 / 用镜像内的 mapextractor 等工具）。
+#   3. 初始化数据库：导入官方 sql（auth / world / 模组 SQL），参考 AzerothCore 官方 wiki。
+#   4. 设好 TCR_IMAGE 环境变量（或直接改上面 image 行），然后：
+#        docker compose up -d

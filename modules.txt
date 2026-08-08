@@ -1,14 +1,59 @@
-# 在这里添加你想要的模组仓库地址
-# 每行一个 Git 仓库 URL，以 # 开头的行会被忽略
+# 43 个模组清单（由表上筛选结果生成，2026-08-08）
+# 每行一个 Git 仓库 URL（.git 结尾）；以 # 开头的行为注释，Dockerfile 会跳过。
+# 编译期克隆进 azerothcore 的 modules/，由 MODULES=static 自动静态编入核心。
+# 不锁 commit（遵循项目决策：rebuild = 拉最新）。
 
-# Playerbots 模组
+# ===== 引擎/框架（必须最先）=====
+https://github.com/azerothcore/mod-ale.git
 https://github.com/mod-playerbots/mod-playerbots.git
 
-# 传送模组
-https://github.com/azerothcore/mod-transmog.git
+# ===== 绑定 mod-ale 的服务端 Lua 脚本 =====
+https://github.com/Aldori15/azerothcore-eluna-accountwide.git
+https://github.com/Brytenwally/Loot-Arbiter.git
+https://github.com/Brytenwally/Random-Item-Enchants.git
 
-# 其他常用模组（取消注释需要的）
-# https://github.com/azerothcore/mod-solo-lfg.git
-# https://github.com/azerothcore/mod-eluna.git
-# https://github.com/azerothcore/mod-autobalance.git
-# https://github.com/azerothcore/mod-learn-spells.git
+# ===== 硬依赖 mod-playerbots =====
+https://github.com/Gutwormy/mod-autonomous-altbots.git
+https://github.com/TopHatMan/mod-bot-inventory-master.git
+https://github.com/jrad7/mod-dungeon-clear.git
+https://github.com/barnaclebarry/mod-optimal-bot-raid.git
+https://github.com/DustinHendrickson/mod-player-bot-level-brackets.git
+https://github.com/TopHatMan/mod-playerbot-dungeon-sim.git
+https://github.com/TopHatMan/mod-playerbots-artisans.git
+https://github.com/dr1s/mod-playerbots-auto-guild.git
+https://github.com/TopHatMan/mod-playerbots-world-pvp.git
+https://github.com/Rockhopper1776/mod-rndbot-buffs.git
+
+# ===== 软兼容 mod-playerbots（不装 pb 也能独立跑）=====
+https://github.com/NathanHandley/mod-ah-bot-plus.git
+https://github.com/Old-Man-Warcraft/mod-guild-wars.git
+https://github.com/Zerathane/mod-token-turnin.git
+https://github.com/Jellypowered/mod-xpcatchup.git
+
+# ===== 其余纯C++/客户端Addon（无引擎依赖）=====
+https://github.com/VenomekPL/mod-all-flightpaths.git
+https://github.com/azerothcore/mod-aoe-loot.git
+https://github.com/noisiver/mod-assistant.git
+https://github.com/Day36512/mod-auto-gather-tracking.git
+https://github.com/azerothcore/mod-autobalance.git
+https://github.com/poorhatsoap/mod-autolearn-skills.git
+https://github.com/ZhengPeiRu21/mod-challenge-modes.git
+https://github.com/RhinoInquiring/mod-classic-warrior-additions.git
+https://github.com/silviu20092/mod-dynamic-gathering-speed.git
+https://github.com/CDBrodie/mod-enhanced-worldchat.git
+https://github.com/Old-Man-Warcraft/mod-guild-levels.git
+https://github.com/Nevaden/mod-instant-swing.git
+https://github.com/Nevaden/mod-item-affixes.git
+https://github.com/TrisBits/mod-junk-to-gold-plus.git
+https://github.com/KingDown-Assoc/mod-living-bomb.git
+https://github.com/azerothcore/mod-low-level-rbg.git
+https://github.com/araxiaonline/mod-mythic-plus.git
+https://github.com/BytesGalore/mod-no-hearthstone-cooldown.git
+https://github.com/KingDown-Assoc/mod-prayer-of-mending.git
+https://github.com/Tereneckla/mod-profession-experience.git
+https://github.com/Jellypowered/mod-quest-catchup.git
+https://github.com/pangolp/mod-quest-loot-party.git
+https://github.com/hallgaeuer/mod-quick-respawn.git
+https://github.com/azerothcore/mod-rdf-expansion.git
+
+# 不收录 mod-eluna（与 mod-ale API 不兼容）；ALE 脚本统一用 mod-ale。
