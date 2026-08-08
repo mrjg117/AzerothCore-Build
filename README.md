@@ -50,9 +50,3 @@ export REG=ccr.ccs.tencentyun.com NS=azerothcore
 ./deploy.sh status / down
 ```
 运行时改配置：编辑 `./config/*.conf` 重启 worldserver，无需重建镜像。
-
-## 备注
-- 内部服务用 compose 服务名 `db` 通信；玩家连接地址由 `set-realm` 注入 `acore_auth.realmlist.address`，动态 IP 填 DDNS 域名即可。
-- SOAP 端口 7878 仅 compose 内部可达，不映射公网。
-- 首部署需在 worldserver 控制台建 SOAP 账号：`account create webreg <密码>` + `account set gmlevel webreg 1`，并将 `SOAP.Password` 与该密码一致。
-- 客户端补丁：guild-levels 与 bot-inventory-master 仅含 AddOn；item-affixes 的 MPQ 需服务器管理员从客户端 `SpellItemEnchantment.dbc` 本地生成（见 `patches-readme.md`），生成后放入 `wotlk-patches` 镜像或另行托管供下载。
