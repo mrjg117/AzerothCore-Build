@@ -2,7 +2,7 @@
 # GitHub Actions —— 构建补丁数据镜像并推腾讯云 TCR
 # ------------------------------------------------------------
 # ・与 wotlk-server 完全独立：手动触发，或本文件变动时构建。
-# ・镜像内容 = 从 3 个模组仓库拉取的客户端 AddOn。
+# ・镜像内容 = client-patches/ 内的静态补丁（MPQ + AddOn，按模组分子目录），纯 COPY 构建。
 # ============================================================
 
 name: Build & Push Patches (Tencent TCR)
@@ -11,8 +11,9 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'Dockerfile.patches'
-      - 'patches-readme.md'
+      - 'build/Dockerfile.patches'
+      - 'client-patches/**'
+      - '.github/workflows/build-patches.yml'
 
 permissions:
   contents: read
@@ -38,7 +39,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.patches
+          file: ./build/Dockerfile.patches
           push: true
           tags: |
             ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-patches:latest

@@ -1,0 +1,53 @@
+# ============================================================
+# 地图数据镜像（wotlk-maps）—— 与服务器镜像**分体构建**
+# ------------------------------------------------------------
+# ・官方核心镜像不带地图文件（maps/vmaps/mmaps/dbc 必须从游戏
+#   客户端数据用官方提取器生成，体积大、且随客户端版本变化）。
+# ・本镜像独立构建、独立推 TCR，不随 wotlk-server 一起重建。
+# ・构建输入：客户端 Data 目录（由 build-maps.yml 从
+#   CLIENT_DATA_URL 下载后放进构建上下文的 client-data/）。
+# ・⚠️ 提取命令/产物路径随客户端版本可能微调，首次构建请核对。
+# ============================================================
+
+# ---------- Stage 1: 官方编译环境 + 提取器 ----------
+FROM azerothcore/ac:master AS extract
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git unzip ca-certificates wget \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# 拉官方源码（仅 configure + 编译提取器，不必编译完整 worldserver）
+RUN git clone --depth 1 https://github.com/azerothcore/azerothcore-wotlk.git ac
+
+# 客户端数据（构建上下文提供：client-data/Data）
+COPY client-data /client-data
+
+RUN cd /src/ac \
+ && mkdir -p build && cd build \
+ && cmake ../ \
+      -DCMAKE_C_COMPILER=clang \
+      -DCMAKE_CXX_COMPILER=clang++ \
+      -DTOOLS_BUILD=all \
+      -DSCRIPTS=static \
+      -DMODULES=static \
+      -DWITH_WARNINGS=0 \
+ && make -j "$(nproc)" map-extractor vmap-extractor mmap-generator
+
+# ---------- 运行官方提取流程 ----------
+RUN cd /src/ac \
+ && rm -rf Data && cp -r /client-data/Data ./Data \
+ && ./build/bin/map-extractor \
+ && ./build/bin/vmap-extractor \
+ && ./build/bin/vmap4assembler Data vmaps \
+ && ./build/bin/mmap-generator
+
+# ---------- Stage 2: 纯数据镜像 ----------
+FROM scratch
+COPY --from=extract /src/ac/maps    /data/maps
+COPY --from=extract /src/ac/dbc     /data/dbc
+COPY --from=extract /src/ac/Cameras /data/Cameras
+COPY --from=extract /src/ac/vmaps   /data/vmaps
+COPY --from=extract /src/ac/mmaps   /data/mmaps
+# 注：若你客户端版本的提取产物目录名不同，按实际调整上面 COPY 列表。

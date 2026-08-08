@@ -38,7 +38,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ./build/Dockerfile
           push: true
           tags: |
             ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-server:latest

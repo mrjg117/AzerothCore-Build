@@ -14,7 +14,7 @@ on:
   push:
     paths:
       - 'client-data/**'
-      - 'Dockerfile.maps'
+      - 'build/Dockerfile.maps'
 
 permissions:
   contents: read
@@ -49,7 +49,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.maps
+          file: ./build/Dockerfile.maps
           push: true
           tags: |
             ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-maps:latest

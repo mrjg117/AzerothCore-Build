@@ -7,7 +7,9 @@
 # ・wotlk-patches：客户端补丁 AddOn（build-patches.yml 独立构建）
 # ・wotlk-web    ：注册页（build-web.yml 独立构建）
 # ・deploy.sh 已把 maps/config/patches 镜像内容导出到本地
-#   ./data、./config、./patches，此处整体挂载；不烤进服务器镜像。
+#   ./runtime/data、./runtime/config、./runtime/patches，此处整体挂载；
+#   运行时导出统一放在 ./runtime/ 下，避免与仓库源码目录（config/、
+#   client-patches/ 等）撞名。
 # ============================================================
 
 services:
@@ -29,7 +31,7 @@ services:
     image: ${TCR_IMAGE_SERVER:-ccr.ccs.tencentyun.com/your-ns/wotlk-server:latest}
     command: ["/azerothcore/bin/authserver"]
     volumes:
-      - ./config:/azerothcore/etc:ro
+      - ./runtime/config:/azerothcore/etc:ro
     ports:
       - "3724:3724"
     depends_on:
@@ -41,8 +43,8 @@ services:
     image: ${TCR_IMAGE_SERVER:-ccr.ccs.tencentyun.com/your-ns/wotlk-server:latest}
     command: ["/azerothcore/bin/worldserver"]
     volumes:
-      - ./data:/azerothcore/data:ro
-      - ./config:/azerothcore/etc:ro
+      - ./runtime/data:/azerothcore/data:ro
+      - ./runtime/config:/azerothcore/etc:ro
     ports:
       - "8085:8085"
     depends_on:
@@ -61,7 +63,7 @@ services:
       - SOAP_LOGIN=webreg
       - SOAP_PASSWORD=${SOAP_PASSWORD:-changeme}
     volumes:
-      - ./patches:/usr/src/app/static/patches:ro
+      - ./runtime/patches:/usr/src/app/static/patches:ro
     depends_on:
       - worldserver
     restart: unless-stopped
@@ -69,9 +71,9 @@ services:
 # 使用（推荐用 deploy.sh 一键）：
 #   1. 设好镜像地址：export REG=ccr.ccs.tencentyun.com NS=azerothcore
 #      （或在 .env 里写 REG/NS/SOAP_PASSWORD/REALM_ADDRESS）
-#   2. 执行：  ./deploy.sh up          # 拉四镜像 + 导出 data/config/patches + 启动
+#   2. 执行：  ./deploy.sh up          # 拉四镜像 + 导出 runtime/{data,config,patches} + 启动
 #             ./deploy.sh init-db     # 首次初始化数据库（需联网拉 TDB）
 #             ./deploy.sh set-realm <你的公网IP或域名>  # 设玩家连接地址
-#   3. 运行时改配置：直接编辑 ./config/*.conf，重启 worldserver 生效，
+#   3. 运行时改配置：直接编辑 ./runtime/config/*.conf，重启 worldserver 生效，
 #      无需重新构建任何镜像。
 #   4. 注册页： http://<本机IP>:8080  （图形验证码 + 限频防刷 + 补丁下载）

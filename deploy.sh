@@ -3,7 +3,9 @@
 # 一键部署脚本（本地）
 # ------------------------------------------------------------
 # 流程：拉取四镜像 → 从 map/config/patches 镜像导出到本地
-#       ./data、./config、./patches → docker compose up。
+#       ./runtime/data、./runtime/config、./runtime/patches → docker compose up。
+# 注：运行时导出统一放在 ./runtime/ 下，避免与仓库源码目录（config/、
+#     client-patches/ 等）撞名被误覆盖。
 # 镜像地址从环境变量读取（REG / NS），或放到本目录 .env 里。
 # 默认：ccr.ccs.tencentyun.com / azerothcore
 # ============================================================
@@ -31,20 +33,20 @@ pull_all() {
 }
 
 populate() {
-  mkdir -p data config patches
-  echo "== 从地图镜像导出数据到 ./data =="
+  mkdir -p runtime/config runtime/data runtime/patches
+  echo "== 从地图镜像导出数据到 ./runtime/data =="
   docker create --name _acore_maps "$MAPS" >/dev/null
-  docker cp _acore_maps:/data/. ./data
+  docker cp _acore_maps:/data/. ./runtime/data
   docker rm _acore_maps >/dev/null
-  echo "== 从配置镜像导出配置到 ./config =="
+  echo "== 从配置镜像导出配置到 ./runtime/config =="
   docker create --name _acore_cfg "$CFG" >/dev/null
-  docker cp _acore_cfg:/azerothcore/etc/. ./config
+  docker cp _acore_cfg:/azerothcore/etc/. ./runtime/config
   docker rm _acore_cfg >/dev/null
-  echo "== 从补丁镜像导出补丁到 ./patches =="
+  echo "== 从补丁镜像导出补丁到 ./runtime/patches =="
   docker create --name _acore_patch "$PATCHES" >/dev/null
-  docker cp _acore_patch:/patches/. ./patches
+  docker cp _acore_patch:/patches/. ./runtime/patches
   docker rm _acore_patch >/dev/null
-  echo "导出完成："; ls data config patches
+  echo "导出完成："; ls runtime/config runtime/data runtime/patches
 }
 
 set_realm() {
@@ -78,7 +80,7 @@ init_db() {
   echo "  1) 进入 worldserver 控制台（或游戏内 GM）："
   echo "     account create webreg <与 worldserver.conf SOAP.Password 一致>"
   echo "     account set gmlevel webreg 1"
-  echo "  2) 确保 ./config/worldserver.conf 的 SOAP.Password 与此处密码相同。"
+  echo "  2) 确保 ./runtime/config/worldserver.conf 的 SOAP.Password 与此处密码相同。"
 }
 
 case "$cmd" in

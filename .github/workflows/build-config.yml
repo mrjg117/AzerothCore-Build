@@ -1,9 +1,10 @@
 # ============================================================
 # GitHub Actions —— 构建配置镜像并推腾讯云 TCR
 # ------------------------------------------------------------
-# ・与 wotlk-server 完全独立：只在手动触发、或 config-src /
+# ・与 wotlk-server 完全独立：只在手动触发、或 config/ 下配置源 /
 #   Dockerfile.config 变动时构建。
-# ・镜像内容 = 仓库 config-src/ 里的默认配置。
+# ・镜像内容 = 仓库 config/core/ + config/modules/<模组>/*.conf
+#   扁平合并后的 /azerothcore/etc/（合并逻辑见 build/Dockerfile.config）。
 # ============================================================
 
 name: Build & Push Config (Tencent TCR)
@@ -12,8 +13,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'config-src/**'
-      - 'Dockerfile.config'
+      - 'config/**'
+      - 'build/Dockerfile.config'
 
 permissions:
   contents: read
@@ -39,7 +40,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.config
+          file: ./build/Dockerfile.config
           push: true
           tags: |
             ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-config:latest

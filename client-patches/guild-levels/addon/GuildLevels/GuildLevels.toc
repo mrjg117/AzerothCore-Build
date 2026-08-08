@@ -1,0 +1,11 @@
+## Interface: 30300
+## Title: Guild Levels
+## Notes: Companion to AzerothCore mod-guild-levels. Shows guild XP/level and perks. Syncs via whispered addon packets and optional guild PULL.
+## Author: AzerothCore mod-guild-levels
+## Version: 1
+## SavedVariables: GuildLevelsSaved
+## OptionalDeps: AIO
+## LoadOnDemand: 0
+
+Core.lua
+UI.lua

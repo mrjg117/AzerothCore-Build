@@ -11,8 +11,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'wotlk-web/**'
-      - 'Dockerfile.web'
+      - 'web/wotlk-web/**'
+      - 'web/wotlk-web/Dockerfile'
 
 permissions:
   contents: read
@@ -37,8 +37,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./wotlk-web
-          file: ./wotlk-web/Dockerfile
+          context: ./web/wotlk-web
+          file: ./web/wotlk-web/Dockerfile
           push: true
           tags: |
             ${{ secrets.TCR_REGISTRY }}/${{ secrets.TCR_NAMESPACE }}/wotlk-web:latest
