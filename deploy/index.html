@@ -42,6 +42,13 @@
       <div class="files">
         <div class="file">
           <div class="meta">
+            <div class="name">ac-deploy.zip</div>
+            <div class="desc">整包一键下载（含下方全部配置，解压即用）</div>
+          </div>
+          <a class="btn" href="./ac-deploy.zip" download>下载</a>
+        </div>
+        <div class="file">
+          <div class="meta">
             <div class="name">docker-compose.yml</div>
             <div class="desc">官方编排（原样使用，勿改）</div>
           </div>
@@ -89,6 +96,20 @@
       </ol>
       <p class="warn" style="margin-top:14px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。首次部署需手动建一个 gmlevel=1 的 <code>webreg</code> 账号供注册页 SOAP 调用。</p>
       <p>完整说明见 <a class="link" href="./README.md">README.md</a>。</p>
+    </div>
+
+    <div class="card">
+      <h2>玩家客户端补丁（给玩家下，不是服务器用）</h2>
+      <div class="files">
+        <div class="file">
+          <div class="meta">
+            <div class="name">patches-client.zip</div>
+            <div class="desc">3.1 MB · 解压到 WoW 3.3.5a 客户端根目录：Data/zhCN/*.mpq + Interface/AddOns/*（地图数据不在内，服务端自带）</div>
+          </div>
+          <a class="btn" href="./patches/patches-client.zip" download>下载</a>
+        </div>
+      </div>
+      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:10px;">注册成功后跳转到注册成功页，可单独下载某个 AddOn。</p>
     </div>
 
     <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config / build-web）· 分发：Cloudflare Pages</footer>
