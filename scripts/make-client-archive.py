@@ -5,26 +5,38 @@
 # 由 client-patches/（按模组分子目录存放）生成本地客户端安装用压缩包，
 # 按 WoW 客户端【路径层级】打包。玩家把压缩包解压到 WoW 客户端
 # 【根目录】即可，目录结构会自动落到正确位置：
-#   Data/patch-Y.mpq, Data/patch-Z.mpq            -> 客户端 Data/
-#   Data/enUS/patch-enUS-*.mpq                    -> 客户端 Data/enUS/
-#   Interface/AddOns/<模组名>/...                 -> 客户端 Interface/AddOns/
+#   Data/zhCN/patch-zhCN-*.mpq                -> 客户端 Data/zhCN/
+#   Interface/AddOns/<模组名>/...             -> 客户端 Interface/AddOns/
 #
 # 扫描规则（与源码布局解耦，目录改名也不影响）：
-#   - 任意 *.mpq                 -> Data/（路径中含 enUS 片段则落到 Data/enUS/）
+#   - 任意 *.mpq                 -> Data/<locale>/（若路径含 locale 片段如 zhCN，则落到该 locale 子目录；否则 Data/ 根）
 #   - 任意含 *.toc 的目录        -> 视为一个 AddOn 根，整目录归入
 #                                   Interface/AddOns/<该目录名>/
 #
-# 输出：client-patches/patches-client.zip
-# 用法：python3 build/tools/make-client-archive.py
+# 输入（可用环境变量覆盖）：
+#   PATCHES_DIR   扫描根目录，默认 <repo>/client-patches
+#   ARCHIVE_OUT   输出 zip 路径，默认 <PATCHES_DIR>/patches-client.zip
+# 用法（仓库内直接打）：python3 scripts/make-client-archive.py
+# 用法（ac-web 镜像构建时）：
+#   PATCHES_DIR=/app/static/patches python3 /app/scripts/make-client-archive.py
 # ============================================================
 import os
 import sys
 import zipfile
 
-# 本文件位于 build/tools/，向上三级即仓库根
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DIST = os.path.join(REPO, 'client-patches')
-OUT = os.path.join(DIST, 'patches-client.zip')
+# 本文件位于 <repo>/scripts/，向上两级即仓库根
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(SCRIPT_DIR)
+DEFAULT_DIST = os.path.join(REPO, 'client-patches')
+
+DIST = os.environ.get('PATCHES_DIR', DEFAULT_DIST)
+OUT = os.environ.get('ARCHIVE_OUT', os.path.join(DIST, 'patches-client.zip'))
+
+# WoW 客户端 locale 目录名（MPQ 按 locale 落入 Data/<locale>/）
+LOCALES = {
+    'enUS', 'enGB', 'deDE', 'esES', 'esMX', 'frFR',
+    'koKR', 'ruRU', 'zhCN', 'zhTW', 'ptBR', 'itIT',
+}
 
 
 def norm(p: str) -> str:
@@ -41,8 +53,9 @@ def find_mpq_items():
             full = os.path.join(root, fn)
             rel = os.path.relpath(full, DIST)
             parts = rel.split(os.sep)
-            if 'enUS' in parts:
-                dst = norm(os.path.join('Data', 'enUS', fn))
+            locale = next((p for p in parts if p in LOCALES), None)
+            if locale:
+                dst = norm(os.path.join('Data', locale, fn))
             else:
                 dst = norm(os.path.join('Data', fn))
             items.append((full, dst))
@@ -80,9 +93,8 @@ def build_readme():
         "1. 关闭游戏客户端。\n"
         "2. 将本压缩包解压到魔兽世界 3.3.5a (WotLK) 客户端【根目录】。\n"
         "   目录结构已按客户端路径打包，解压后会自动落到：\n"
-        "     Data/patch-Y.mpq, Data/patch-Z.mpq          （客户端 Data/ 目录）\n"
-        "     Data/enUS/patch-enUS-*.mpq                  （英文客户端 Data/enUS/）\n"
-        "     Interface/AddOns/<模组名>/                   （插件目录）\n"
+        "     Data/zhCN/patch-zhCN-*.mpq                （中文客户端 Data/zhCN/）\n"
+        "     Interface/AddOns/<模组名>/                 （插件目录）\n"
         "3. 启动游戏，用注册页申请的账号登录即可。\n"
         "\n"
         "包含的模组（源码按模组分目录存放于 client-patches/）：\n"

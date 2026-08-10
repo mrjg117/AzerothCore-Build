@@ -24,3 +24,7 @@ node_modules
 
 # 地图数据（构建时从 wowgaming/client-data 下载烤入 ac-maps 镜像，不落库）
 config/maps/data/
+
+# 客户端补丁整包（仅镜像构建时现打，不进仓库）
+patches-client.zip
+client-patches/patches-client.zip

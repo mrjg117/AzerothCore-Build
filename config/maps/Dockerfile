@@ -8,8 +8,12 @@
 #   /azerothcore/env/dist/data（读写），本镜像启动后把 /ac-maps-data 下的
 #   数据 cp 进该卷，随后退出；ac-worldserver 再以 :ro 读同一卷。
 #   故本 Dockerfile 只需把数据放到镜像内 /ac-maps-data/，cp 动作在 CMD 完成。
+#
+# 注意：容器默认以 root 执行 cp，落进卷的文件属主为 root；
+# 官方 worldserver 以 acore(uid 1000) 运行，需保证文件对其他用户可读，
+# 故 cp 后补一次 chmod -R a+rX。
 
 FROM alpine:3.20
 RUN apk add --no-cache bash
 COPY data/ /ac-maps-data/
-CMD ["sh", "-c", "cp -r /ac-maps-data/. /azerothcore/env/dist/data/ && echo '[ac-maps] client data copied into volume'"]
+CMD ["sh", "-c", "cp -r /ac-maps-data/. /azerothcore/env/dist/data/ && chmod -R a+rX /azerothcore/env/dist/data && echo '[ac-maps] client data copied into volume'"]

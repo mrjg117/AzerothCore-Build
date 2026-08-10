@@ -12,11 +12,15 @@
 | 路径 | 职责 |
 |---|---|
 | `modules.txt` | 43 个模组 Git 地址清单（编译期克隆进官方 `modules/`，由 `MODULES=static` 静态编入核心） |
-| `.github/workflows/build-core.yml` | 克隆官方 + 43 模组，构建 5 个官方 target 推双仓库，组装部署包发 Release |
-| `.github/workflows/build-extras.yml` | 构建 `ac-web`（注册页）与 `ac-extra-config`（配置注入）推双仓库 |
+| `.github/workflows/build-core.yml` | 克隆官方 + 43 模组，构建 4 个官方 server target（worldserver/authserver/db-import/tools；地图改由 build-maps 提供）推双仓库，组装部署包发 Release |
+| `.github/workflows/build-maps.yml` | 下载社区地图源 `wowgaming/client-data@v20.0` 的 `Data.zip`，烤进独立 `ac-maps` 镜像推双仓库（替换官方 client-data） |
+| `.github/workflows/build-config.yml` | 构建 `ac-extra-config`（配置注入）镜像推双仓库 |
+| `.github/workflows/build-web.yml` | 从原仓库拉最新 AddOn 覆盖 `client-patches/` 后构建 `ac-web`（注册页 + 客户端补丁，构建时现打 `patches-client.zip`）推双仓库 |
+| `.github/workflows/sync-addons.yml` | 定时把原仓库最新 `client_addon/` 刷回 `client-patches/` 并提交（保持离线兜底最新） |
 | `web/wotlk-web/` | 最轻自研注册页（静态表单 + 单文件后端，调 worldserver SOAP `account create`）；构建上下文为仓库根，会把 `client-patches/` 烤进 `static/patches` 供下载 |
-| `client-patches/` | 客户端补丁，按模组分子目录 |
+| `client-patches/` | 客户端补丁，按模组分子目录（MPQ 仅 `zhCN` 单份；AddOn 为离线兜底，构建时从原仓库拉最新覆盖）；`patches-client.zip` 不进仓库，由 `ac-web` 镜像构建时现打 |
 | `config/extra-config/` | 自定义配置注入镜像源（`confs/` 按模组分：worldserver / playerbots / mod_item_affixes） |
+| `config/maps/` | `ac-maps` 镜像源（社区地图数据烤入，替换官方 client-data） |
 | `scripts/assemble-deploy-bundle.sh` | 构建时把官方 `docker-compose.yml` + `env.ac` 与我们的配置打部署包 |
 | `scripts/inject-config.sh` | 部署机把自定义配置注入卷 |
 | `docker-compose.override.yml` | 官方 compose 唯一扩展点（换镜像地址 + 追加 `ac-web`） |

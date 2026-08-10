@@ -13,7 +13,7 @@ mkdir ac-deploy && tar -xzf ac-deploy.tar.gz -C ac-deploy && cd ac-deploy
 
 # 2. 填配置
 cp .env.example .env && vi .env          # 设 IMAGE_TAG / TCR_NS / SOAP_PASSWORD / REALM_ADDRESS / 端口
-vi conf/dist/env.ac                       # 改数据库密码（MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD 等）
+vi conf/dist/env.ac                       # 改数据库密码（DOCKER_DB_ROOT_PASSWORD / DOCKER_DB_PASSWORD 等）
 
 # 3. 拉镜像（必须先 pull，否则 compose 会触发本地 build）
 docker compose pull
@@ -45,5 +45,6 @@ docker compose up -d ac-worldserver
 ## 三、维护
 - **镜像双推 TCR + DockerHub**：override 默认走 TCR；想换 DockerHub 改 override 的 image 前缀即可。
 - **加/换模组**：改 `modules.txt` → 重新跑 `build-core.yml` → 重新取部署包部署。
-- **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-extras.yml` → 重新 `inject-config.sh`。
-- **改注册页**：改 `web/wotlk-web/*` → 重新跑 `build-extras.yml`。
+- **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`（`ac-maps` 重新烤入，替换官方 client-data）。
+- **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 重新 `inject-config.sh`。
+- **改注册页 / 客户端补丁**：改 `web/wotlk-web/*` 或 `client-patches/*` → 重新跑 `build-web.yml`（补丁整包在镜像构建时现打）。
