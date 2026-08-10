@@ -1,39 +1,59 @@
 # 部署包（deploy/）
 
-本目录是 AzerothCore 服务器的**完整部署包**，由 Cloudflare Pages 直接托管（`index.html` 为下载/说明页）。
+本目录是 AzerothCore 服务器的**部署源**，由 Cloudflare Pages 直接托管（`index.html` 为下载/说明页）。
 GitHub 只负责构建镜像并推送到 TCR / DockerHub，**分发走 CF Pages**（国内连 GitHub 不稳，下载从 CF 走）。
 
-## 目录内容
+## 仓库里提交什么、构建时生成什么
 
-| 文件 | 来源 | 说明 |
-|---|---|---|
-| `docker-compose.yml` | 官方（固定副本） | 官方编排，原样使用，勿改 |
-| `docker-compose.override.yml` | 本项目 | 官方钦定扩展点：换镜像地址 + 追加 `ac-web` 注册页 |
-| `.env.example` | 本项目 | 部署变量样例，复制为 `.env` 后填写 |
-| `conf/dist/env.ac` | 官方（固定副本） | 官方环境模板（编译器/路径；**DB 密码不在此**） |
-| `inject-config.sh` | 本项目 | 部署机把自定义配置注入卷（拉 `ac-extra-config` 导出到 `env/dist/etc/`） |
-| `index.html` | 本项目 | CF Pages 下载/说明页 |
+**提交进仓库（源文件）：**
+| 文件 | 说明 |
+|---|---|
+| `docker-compose.override.yml` | 官方钦定扩展点：换镜像地址 + 追加 `ac-web` 注册页 |
+| `.env.example` | 部署变量样例，复制为 `.env` 后填写 |
+| `inject-config.sh` | 部署机把自定义配置注入卷（拉 `ac-extra-config` 导出到 `env/dist/etc/`） |
+| `index.html` | CF Pages 下载/说明页 |
+| `README.md` | 本说明 |
+| `build-pages.sh` | 构建脚本：现拉官方文件 + 现打两个压缩包 |
 
-> 官方两份文件是固定副本，AC 更新时需手动同步（见末尾「同步官方文件」）。
+**构建时现拉 / 现打（不进仓库，`.gitignore` 已忽略）：**
+| 文件 | 来源 |
+|---|---|
+| `docker-compose.yml` | 官方，由 `build-pages.sh` 从上游拉取（原样使用，勿改） |
+| `conf/dist/env.ac` | 官方，由 `build-pages.sh` 从上游拉取（编译器/路径；**DB 密码不在此**） |
+| `patches/patches-client.zip` | 由 `scripts/make-client-archive.py` 现打（玩家客户端补丁） |
+| `ac-deploy.zip` | 由 `build-pages.sh` 把上述配置打包成的整包 |
 
-## 部署步骤
+> 这样官方两份文件永远是最新、且不会因副本过期踩坑；补丁包也总是最新。
+
+## Cloudflare Pages 配置
+
+把本仓库连到 Cloudflare Pages，项目设置：
+- **构建命令**：`bash deploy/build-pages.sh`
+- **输出目录**：`deploy`
+- **框架预设**：None
+
+推送后 CF 自动执行 `build-pages.sh`：拉官方文件 → 打补丁包 → 打配置整包，`index.html` 即为下载/说明页。
+
+本地预览同样可执行 `bash deploy/build-pages.sh`，结束后 `deploy/` 即为可直接托管的静态目录。
+
+## 部署步骤（部署机，无 git）
 
 ```bash
-# 1. 进入本目录
-cd deploy
+# 1. 从 Pages 站点把 deploy/ 整目录下到部署机，进入该目录
+#    （或本地跑过 build-pages.sh 后 scp 过去）
 
 # 2. 生成 .env 并填写（至少改这几项）
 cp .env.example .env
 #   IMAGE_TAG      = latest（或 CI 构建出的具体 tag）
 #   TCR_NS         = 你的 TCR 命名空间
 #   DOCKER_DB_ROOT_PASSWORD = 必改！否则数据库密码回退默认 password
-#   SOAP_PASSWORD  = 改掉占位，且需与下方 worldserver SOAP.Password 一致
+#   SOAP_PASSWORD  = 改掉占位，且需与 core/worldserver.conf 注入的 SOAP.Password 一致
 #   REALM_ADDRESS  = 玩家客户端填的对外 realm 地址
 
 # 3. 拉镜像（关键：漏这步会在服务器本地触发编译整个 azerothcore）
 docker compose pull
 
-# 4. 注入自定义配置（worldserver.conf 等）
+# 4. 注入自定义配置（core + 模块 conf）
 bash inject-config.sh
 
 # 5. 起服务：建库 → 导库（含 43 模组 SQL）→ 灌地图 → 起服
@@ -49,23 +69,3 @@ docker compose up -d
 官方 `docker-compose.yml` 中 `ac-database` 的 `MYSQL_ROOT_PASSWORD` 取 `${DOCKER_DB_ROOT_PASSWORD:-password}`，
 该变量由 **`.env` 提供**（docker compose 自动读取），**不在 `env.ac` 里**。`env.ac` 只含编译器/路径配置。
 所以改密码只改 `.env` 的 `DOCKER_DB_ROOT_PASSWORD` 即可。
-
-## Cloudflare Pages 配置
-
-把本仓库连到 Cloudflare Pages，项目设置：
-- **构建目录 / 根目录**：`deploy`（即本目录）
-- **构建命令**：留空
-- **输出目录**：`.`（deploy 本身，含 index.html）
-
-推送后 CF Pages 自动发布，`index.html` 即为下载/说明页，部署文件均可直接下载。
-
-## 同步官方文件
-
-AC 更新后，重新拉取官方两份文件覆盖本目录的副本即可：
-
-```bash
-# 在仓库根执行（需能访问 GitHub）
-curl -fsSL https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/docker-compose.yml -o deploy/docker-compose.yml
-curl -fsSL https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/conf/dist/env.ac -o deploy/conf/dist/env.ac
-git add deploy && git commit -m "chore: sync official docker-compose.yml / env.ac"
-```

@@ -21,6 +21,12 @@ node_modules
 # 地图数据（构建时从 wowgaming/client-data 下载烤入 ac-maps 镜像，不落库）
 config/maps/data/
 
-# 客户端补丁整包（仅镜像构建时现打，不进仓库）
+# 客户端补丁整包（仅镜像构建 / Pages 构建时现打，不进仓库）
 patches-client.zip
 client-patches/patches-client.zip
+
+# 部署包中由构建（Cloudflare Pages / 本地 build-pages.sh）现拉现打的文件，不进仓库
+deploy/docker-compose.yml
+deploy/conf/dist/env.ac
+deploy/ac-deploy.zip
+deploy/patches/patches-client.zip
