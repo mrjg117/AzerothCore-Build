@@ -1,0 +1,72 @@
+name: build-web
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "web/**"
+      - "client-patches/**"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+env:
+  ACORE_REF: master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login TCR
+        uses: docker/login-action@v3
+        with:
+          registry: tcr.ccs.tencentyun.com
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
+
+      - name: Login DockerHub
+        if: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull latest addons from upstream client_addon/ (覆盖仓库离线兜底副本)
+        run: |
+          declare -A mods=(
+            ["guild-levels"]="https://github.com/Old-Man-Warcraft/mod-guild-levels.git"
+            ["bot-inventory-master"]="https://github.com/TopHatMan/mod-bot-inventory-master.git"
+            ["item-affixes"]="https://github.com/Nevaden/mod-item-affixes.git"
+          )
+          for m in "${!mods[@]}"; do
+            url="${mods[$m]}"
+            rm -rf "/tmp/$m" && git clone --depth 1 "$url" "/tmp/$m"
+            if [ -d "/tmp/$m/client_addon" ]; then
+              mkdir -p "client-patches/$m/addon"
+              cp -rf "/tmp/$m/client_addon/." "client-patches/$m/addon/"
+              echo "updated addons for $m"
+            else
+              echo "warn: $m has no client_addon/, keep repo copy"
+            fi
+          done
+
+      - name: Compute VERSION
+        id: ver
+        run: echo "version=$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push ac-web (context = repo root, 现打补丁 zip)
+        run: |
+          TAGS="tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-web:${{ steps.ver.outputs.version }},tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-web:latest"
+          if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-web:${{ steps.ver.outputs.version }},docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-web:latest"
+          fi
+          docker buildx build --tag "$TAGS" --push -f web/wotlk-web/Dockerfile .

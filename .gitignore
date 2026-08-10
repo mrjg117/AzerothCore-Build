@@ -21,3 +21,6 @@ Thumbs.db
 env/
 ac-deploy-*.tar.gz
 node_modules
+
+# 地图数据（构建时从 wowgaming/client-data 下载烤入 ac-maps 镜像，不落库）
+config/maps/data/

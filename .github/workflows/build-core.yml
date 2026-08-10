@@ -60,11 +60,12 @@ jobs:
         id: ver
         run: echo "version=$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
-      - name: Build & push 5 official targets (TCR + DockerHub)
+      - name: Build & push 4 official server targets (TCR + DockerHub)
         run: |
           cd official
           CACHE="--cache-from=type=local,src=/tmp/acache --cache-to=type=local,mode=max,dest=/tmp/acache"
-          for t in worldserver authserver db-import client-data tools; do
+          # 注：client-data target 由 build-maps.yml 的 ac-maps 镜像取代
+          for t in worldserver authserver db-import tools; do
             TAGS="tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:${{ steps.ver.outputs.version }},tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:latest"
             if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
               TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:${{ steps.ver.outputs.version }},docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:latest"

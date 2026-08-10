@@ -1,0 +1,51 @@
+name: sync-addons
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 每周一 03:17 UTC 把上游最新 client_addon 刷回仓库（保持离线兜底不陈旧）
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest addons from upstream client_addon/
+        run: |
+          declare -A mods=(
+            ["guild-levels"]="https://github.com/Old-Man-Warcraft/mod-guild-levels.git"
+            ["bot-inventory-master"]="https://github.com/TopHatMan/mod-bot-inventory-master.git"
+            ["item-affixes"]="https://github.com/Nevaden/mod-item-affixes.git"
+          )
+          for m in "${!mods[@]}"; do
+            url="${mods[$m]}"
+            rm -rf "/tmp/$m" && git clone --depth 1 "$url" "/tmp/$m"
+            if [ -d "/tmp/$m/client_addon" ]; then
+              mkdir -p "client-patches/$m/addon"
+              cp -rf "/tmp/$m/client_addon/." "client-patches/$m/addon/"
+              echo "fetched addons for $m"
+            else
+              echo "warn: $m has no client_addon/, skip"
+            fi
+          done
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add client-patches
+          if git diff --cached --quiet; then
+            echo "no addon changes"
+          else
+            git commit -m "chore: sync client addons from upstream ($(date +%Y-%m-%d))"
+            git push
+          fi
