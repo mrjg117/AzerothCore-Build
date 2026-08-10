@@ -1,0 +1,40 @@
+# 本文件是官方 docker-compose.yml 的唯一扩展点（官方原文第 4-5 行钦定）。
+# 只做两件事：① 把镜像地址从 Docker Hub 改成我们的 TCR/DockerHub；② 追加 ac-web 注册页服务。
+# 不修改官方任何 service 的定义。
+
+services:
+  # 官方 5 个核心服务：仅替换镜像，其余（env_file / depends_on / healthcheck）继承官方
+  ac-worldserver:
+    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-wotlk-worldserver:${IMAGE_TAG}
+    ports:
+      # 只开放游戏端口；SOAP(7878) 仅容器网络内可达，不暴露公网
+      - "8085:8085"
+
+  ac-authserver:
+    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-wotlk-authserver:${IMAGE_TAG}
+    ports:
+      - "3724:3724"
+
+  ac-db-import:
+    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-wotlk-db-import:${IMAGE_TAG}
+
+  ac-client-data:
+    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-wotlk-client-data:${IMAGE_TAG}
+
+  ac-tools:
+    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-wotlk-tools:${IMAGE_TAG}
+
+  # 追加：最轻自研注册页（静态表单 + 单文件后端，调 worldserver SOAP account create）
+  ac-web:
+    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-web:${IMAGE_TAG}
+    ports:
+      - "${AC_WEB_PORT:-8080}:8080"
+    environment:
+      - SOAP_HOST=ac-worldserver
+      - SOAP_PORT=7878
+      - SOAP_LOGIN=${SOAP_LOGIN:-webreg}
+      - SOAP_PASSWORD=${SOAP_PASSWORD:-changeMeNow123!}
+      - REALM_ADDRESS=${REALM_ADDRESS:-play.example.com}
+    depends_on:
+      ac-worldserver:
+        condition: service_healthy

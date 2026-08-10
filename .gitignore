@@ -18,3 +18,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+env/
+ac-deploy-*.tar.gz
+node_modules
