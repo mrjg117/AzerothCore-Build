@@ -1,10 +1,6 @@
 # 环境变量
 .env
 
-# 运行时导出目录（deploy.sh 从镜像导出，非源码）
-runtime/
-db/
-
 # 数据目录
 data/
 logs/
