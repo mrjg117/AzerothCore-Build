@@ -39,7 +39,7 @@ rm -f ac-deploy.zip
 python3 - <<'PY'
 import zipfile, os
 files = ["docker-compose.yml", "docker-compose.override.yml",
-         ".env.example", "inject-config.sh", "README.md"]
+         ".env.example", "inject-config.sh", "deploy-console.sh", "README.md"]
 with zipfile.ZipFile("ac-deploy.zip", "w", zipfile.ZIP_DEFLATED) as z:
     for f in files:
         if os.path.exists(f):
@@ -51,5 +51,8 @@ with zipfile.ZipFile("ac-deploy.zip", "w", zipfile.ZIP_DEFLATED) as z:
 print("OK ac-deploy.zip")
 PY
 
+# 导出当前镜像 tag，便于控制台/人工核对
+grep -E "^IMAGE_TAG=" .env.example | head -1 > VERSION 2>/dev/null || true
+
 echo "==> 完成：deploy/ 已就绪，可被 Cloudflare Pages 直接托管"
-echo "    生成产物：docker-compose.yml  conf/dist/env.ac  patches/patches-client.zip  ac-deploy.zip"
+echo "    生成产物：docker-compose.yml  conf/dist/env.ac  patches/patches-client.zip  ac-deploy.zip  VERSION  deploy-console.sh"

@@ -30,3 +30,4 @@ deploy/docker-compose.yml
 deploy/conf/dist/env.ac
 deploy/ac-deploy.zip
 deploy/patches/patches-client.zip
+deploy/VERSION

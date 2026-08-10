@@ -6,7 +6,7 @@ on:
     branches: [main, master]
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   ACORE_REF: master
@@ -69,3 +69,14 @@ jobs:
             fi
             docker buildx build $CACHE --target "$t" -f apps/docker/Dockerfile --build-arg CMODULES=static --tag "$TAGS" --push .
           done
+
+      - name: Bump IMAGE_TAG in deploy/.env.example and commit
+        run: |
+          cd ../acore-build-repo
+          VER="$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)"
+          sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$VER/" deploy/.env.example
+          git config user.email "ci@local"
+          git config user.name "ci"
+          git add deploy/.env.example
+          git commit -m "ci: bump IMAGE_TAG to $VER [skip ci]" || echo "no change"
+          git push

@@ -37,8 +37,20 @@
     <h1>AzerothCore 部署包</h1>
     <p class="sub">本页由 Cloudflare Pages 托管 · 部署所需文件均可直接下载 · 镜像由 GitHub Actions 构建并推送到 TCR / DockerHub</p>
 
+    <div class="card" style="border-color:var(--accent);">
+      <h2>一键安装（部署机控制台）</h2>
+      <p class="desc" style="margin-top:0;">在部署机终端粘贴运行下面这一行，脚本会自动从本 Pages 站点拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（一键部署 / 更新配置 / 重下地图 / 重部署主页 / 启停 / 日志）。</p>
+      <div class="file">
+        <div class="meta">
+          <div class="name">curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh &amp;&amp; bash deploy-console.sh https://ac-deploy.pages.dev</div>
+        </div>
+        <a class="btn" href="#" onclick="navigator.clipboard.writeText('curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh && bash deploy-console.sh https://ac-deploy.pages.dev');this.textContent='已复制';return false;">复制</a>
+      </div>
+      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可（脚本第二个参数就是来源 BASE_URL）。</p>
+    </div>
+
     <div class="card">
-      <h2>下载部署文件</h2>
+      <h2>下载部署文件（手动方式）</h2>
       <div class="files">
         <div class="file">
           <div class="meta">
@@ -86,7 +98,7 @@
     </div>
 
     <div class="card">
-      <h2>快速部署（5 步）</h2>
+      <h2>快速部署（手动 5 步，或改用上方控制台）</h2>
       <ol>
         <li>把本页文件整包下载到部署机，进入该目录。</li>
         <li><code>cp .env.example .env</code>，编辑：<code>IMAGE_TAG</code>（或留 <code>latest</code>）、<code>DOCKER_DB_ROOT_PASSWORD</code>、<code>SOAP_PASSWORD</code>、<code>REALM_ADDRESS</code>、<code>TCR_NS</code>。</li>
