@@ -17,7 +17,7 @@
 #   PATCHES_DIR   扫描根目录，默认 <repo>/client-patches
 #   ARCHIVE_OUT   输出 zip 路径，默认 <PATCHES_DIR>/patches-client.zip
 # 用法（仓库内直接打）：python3 scripts/make-client-archive.py
-# 用法（ac-web 镜像构建时）：
+# 用法（Cloudflare Pages 构建 build-pages.sh 调用）：
 #   PATCHES_DIR=/app/static/patches python3 /app/scripts/make-client-archive.py
 # ============================================================
 import os

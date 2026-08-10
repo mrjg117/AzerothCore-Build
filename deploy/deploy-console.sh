@@ -9,7 +9,7 @@
 #     不进 git、不手动打包；官方编排文件也由 Pages 在构建时从上游现拉。
 #   * 首次运行自动生成 .env（从 .env.example 拷），并交互填写关键项。
 #   * 之后就是一个交互式菜单控制台，支持一键部署 / 更新配置 / 重下地图 /
-#     重部署主页 / 启停 / 状态日志 等。
+#     启停 / 状态日志 / 下载补丁 等。
 # ============================================================
 [ -z "${1:-}" ] && { echo "用法: bash deploy-console.sh <Pages_BASE_URL>"; exit 1; }
 BASE_URL="$1"
@@ -55,9 +55,8 @@ configure() {
   edit_env IMAGE_TAG           "镜像 tag（或留 latest）"
   edit_env TCR_NS              "TCR 命名空间"
   edit_env DOCKER_DB_ROOT_PASSWORD "数据库 root 密码"
-  edit_env SOAP_PASSWORD       "注册页 SOAP 密码（须与 worldserver 一致）"
+  edit_env SOAP_PASSWORD       "注册服务 SOAP 密码（须与 worldserver 一致）"
   edit_env REALM_ADDRESS       "对外 realm 地址"
-  edit_env AC_WEB_PORT         "注册页端口"
   echo "==> 已保存 .env"
 }
 
@@ -74,10 +73,10 @@ while true; do
   echo "  1) 一键部署        pull 全部镜像 + up -d"
   echo "  2) 更新配置        重拉 ac-extra-config + 注入 + 重启 worldserver"
   echo "  3) 重新下地图      重拉 ac-maps + 重建 client-data-init + 重启 worldserver"
-  echo "  4) 重新部署主页    重拉 ac-web + 重建"
-  echo "  5) 启 / 停 / 重启  服务控制"
-  echo "  6) 状态 / 日志     查看运行态与日志"
-  echo "  7) 编辑 .env       交互填写关键项"
+  echo "  4) 启 / 停 / 重启  服务控制"
+  echo "  5) 状态 / 日志     查看运行态与日志"
+  echo "  6) 编辑 .env       交互填写关键项"
+  echo "  7) 下载玩家补丁    批量下分卷并合并到本地 patches-client/"
   echo "  0) 退出"
   echo "--------------------------------------------------"
   read -rp "选择: " c
@@ -106,12 +105,6 @@ while true; do
       pause
       ;;
     4)
-      echo "==> [4] 重新部署主页（重拉 ac-web + 重建）"
-      dc pull ac-web
-      dc up -d --force-recreate ac-web
-      pause
-      ;;
-    5)
       while true; do
         echo "---- 服务控制 ----"
         echo "  a) 全部启动   b) 全部停止   c) 全部重启   d) 仅重启 worldserver   e) 返回"
@@ -126,7 +119,7 @@ while true; do
         esac
       done
       ;;
-    6)
+    5)
       echo "==> 状态"
       dc ps
       echo ""
@@ -134,7 +127,14 @@ while true; do
       dc logs --tail=60 ac-worldserver 2>/dev/null || true
       pause
       ;;
-    7) configure ;;
+    6) configure ;;
+    7)
+      echo "==> [7] 下载玩家补丁（分卷）"
+      curl -fsSL -o download-patches.sh "$BASE_URL/download-patches.sh" \
+        || { echo "下载 download-patches.sh 失败"; pause; continue; }
+      bash download-patches.sh "$BASE_URL" patches-client
+      pause
+      ;;
     0) echo "退出。文件都在 $WORK_DIR，可随时再来：bash deploy-console.sh $BASE_URL"; exit 0 ;;
     *) echo "无效选择" ;;
   esac

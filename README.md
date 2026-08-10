@@ -15,19 +15,19 @@
 | `.github/workflows/build-core.yml` | 克隆官方 + 43 模组，构建 4 个官方 server target（worldserver/authserver/db-import/tools；地图改由 build-maps 提供）推双仓库（部署包见 `deploy/`，由 Cloudflare Pages 分发） |
 | `.github/workflows/build-maps.yml` | 下载社区地图源 `wowgaming/client-data@v20.0` 的 `Data.zip`，烤进独立 `ac-maps` 镜像推双仓库（替换官方 client-data） |
 | `.github/workflows/build-config.yml` | 构建 `ac-extra-config`（配置注入）镜像推双仓库 |
-| `.github/workflows/build-web.yml` | 从原仓库拉最新 AddOn 覆盖 `client-patches/` 后构建 `ac-web`（注册页 + 客户端补丁，构建时现打 `patches-client.zip`）推双仓库 |
 | `.github/workflows/sync-addons.yml` | 定时把原仓库最新 `client_addon/` 刷回 `client-patches/` 并提交（保持离线兜底最新） |
 | `web/wotlk-web/` | 最轻自研注册页（静态表单 + 单文件后端，调 worldserver SOAP `account create`）；构建上下文为仓库根，会把 `client-patches/` 烤进 `static/patches` 供下载 |
-| `client-patches/` | 客户端补丁，按模组分子目录（MPQ 仅 `zhCN` 单份；AddOn 为离线兜底，构建时从原仓库拉最新覆盖）；`patches-client.zip` 不进仓库，由 `ac-web` 镜像构建时现打 |
+| `client-patches/` | 客户端补丁，按模组分子目录（MPQ 仅 `zhCN` 单份；AddOn 为离线兜底，构建时从原仓库拉最新覆盖）；`patches-client.zip` 不进仓库，由 Cloudflare Pages 构建时（build-pages.sh）现打 |
 | `config/extra-config/` | 自定义配置注入镜像源（`confs/` 按模组分：worldserver / playerbots / mod_item_affixes） |
 | `config/maps/` | `ac-maps` 镜像源（社区地图数据烤入，替换官方 client-data） |
 | `deploy/` | **完整部署包**：官方 `docker-compose.yml` + `conf/dist/env.ac` 固定副本 + 我们的 `docker-compose.override.yml` / `.env.example` / `inject-config.sh` + `index.html` 下载页；由 Cloudflare Pages 托管分发 |
 | `deploy/inject-config.sh` | 部署机把自定义配置注入卷 |
-| `deploy/docker-compose.override.yml` | 官方 compose 唯一扩展点（换镜像地址 + 追加 `ac-web`） |
+| `deploy/docker-compose.override.yml` | 官方 compose 唯一扩展点（仅换镜像地址；`ac-web` 已不再纳入部署，源码保留于 `web/wotlk-web/`） |
 | `deploy/.env.example` | 部署变量样例（含 `DOCKER_DB_ROOT_PASSWORD` 等） |
 | `docs/DEPLOY.md` | 部署步骤 |
 
 ## 注册页选型
+> 注：`web/wotlk-web/`（ac-web）源码仍保留，但已不再作为部署组件；账号注册改由 Cloudflare 侧（Pages 静态表单 + Function 调 worldserver SOAP）完成，详见各部署文档。
 最轻自研（静态表单 + 单文件后端调 SOAP），排除 WordPress(acore-cms) 与 WoWSimpleRegistration 整套 PHP 应用。
 完整调研见工作区根目录的 `_官方注册页方案调研.md`。
 

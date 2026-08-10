@@ -1,7 +1,9 @@
 # 本文件是官方 docker-compose.yml 的唯一扩展点（官方原文第 4-5 行钦定）。
-# 只做两件事：① 把官方镜像地址从 Docker Hub 换成我们的 TCR/DockerHub；② 追加 ac-web 注册页服务。
-# 不修改官方任何 service 的定义逻辑：ac-web 是「新增服务」，其余官方服务的镜像只是「替换指向」，
+# 只做一件事：把官方镜像地址从 Docker Hub 换成我们的 TCR/DockerHub。
+# 不修改官方任何 service 的定义逻辑：各官方服务的镜像只是「替换指向」，
 # 其余字段（env_file / depends_on / healthcheck / ports / volumes）全部继承官方。
+# 注：注册页 ac-web 源码仍保留在 web/wotlk-web/，但已不再纳入本部署编排；
+#     账号注册改由外部完成（Cloudflare Pages + Function 调 worldserver SOAP）。
 
 services:
   # 官方 4 个核心 server 服务：仅替换镜像，其余（env_file / depends_on / healthcheck / ports）继承官方
@@ -29,21 +31,3 @@ services:
   ac-client-data-init:
     image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-maps:${IMAGE_TAG}
     build: null
-
-  # 追加：最轻自研注册页（静态表单 + 单文件后端，调 worldserver SOAP account create）
-  ac-web:
-    image: tcr.ccs.tencentyun.com/${TCR_NS}/ac-web:${IMAGE_TAG}
-    networks:
-      - ac-network
-    restart: unless-stopped
-    ports:
-      - "${AC_WEB_PORT:-8080}:8080"
-    environment:
-      - SOAP_HOST=ac-worldserver
-      - SOAP_PORT=7878
-      - SOAP_LOGIN=${SOAP_LOGIN:-webreg}
-      - SOAP_PASSWORD=${SOAP_PASSWORD:-changeMeNow123!}
-      - REALM_ADDRESS=${REALM_ADDRESS:-play.example.com}
-    depends_on:
-      ac-worldserver:
-        condition: service_started

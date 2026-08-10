@@ -1,6 +1,6 @@
 # client-patches — 客户端补丁（按模组分子目录）
 
-本目录是 `ac-web` 镜像里 `/app/static/patches/` 的**源**。结构按模组分子目录，
+本目录是客户端补丁的**源**（最终由 Cloudflare Pages 构建时打包为 `patches-client.zip` 分卷分发）。结构按模组分子目录，
 便于溯源与单独下载。
 
 > 目录名 `client-patches/` 是为与未来可能的「服务器补丁」区分；若有服务端热补可另建 `server-patches/`，互不干扰。
@@ -25,14 +25,14 @@ client-patches/
 - **MPQ 单份**：中文客户端 locale 目录为 `Data/zhCN/`，故只放 `zhCN/` 一份
   （不再有根目录与 `enUS/` 重复拷贝）。打包后落到玩家客户端 `Data/zhCN/`。
 - **AddOn 是「离线兜底副本」**：仓库里这份用于构建机联网失败时的兜底；
-  平时 `build-web.yml` 会从原模组仓库的 `client_addon/` 拉**最新**覆盖进来，
+  平时 `sync-addons.yml` 会从原模组仓库的 `client_addon/` 拉**最新**覆盖进来，
   `sync-addons.yml` 再把最新版刷回本目录提交，保持兜底不陈旧。
 
-## 打包（整包不在仓库，镜像构建时现打）
+## 打包（整包不在仓库，Cloudflare Pages 构建时现打）
 
-`patches-client.zip` **不提交进仓库**。构建 `ac-web` 镜像时，
-`web/wotlk-web/Dockerfile` 把本目录 COPY 进 `/app/static/patches`，
-再跑 `scripts/make-client-archive.py` 现场打成 zip，玩家在注册成功页下载。
+`patches-client.zip` **不提交进仓库**。Cloudflare Pages 构建（`build-pages.sh`）时，
+`scripts/make-client-archive.py` 把本目录按 WoW 目录层级现场打成 zip（按需分卷），
+由 Pages 分卷分发，玩家用 `download-patches.sh` 批量下载合并。
 
 扫描规则（与布局解耦）：任意 `*.mpq` → 路径含 locale(`zhCN`) 则落 `Data/zhCN/`；
 含 `.toc` 的目录 → `Interface/AddOns/<名>/`。结果层级：

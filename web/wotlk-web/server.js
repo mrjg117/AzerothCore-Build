@@ -5,16 +5,13 @@
 //  - 图形验证码（svg-captcha，无第三方依赖）
 //  - 同 IP 注册冷却限频（防刷）
 //  - 经 worldserver SOAP 接口 account create 写账号（SRP6 由核心算）
-//  - 注册成功后展示客户端补丁（AddOn）下载区
 // ============================================================
 
 const express = require('express');
 const svgCaptcha = require('svg-captcha');
 const http = require('http');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -27,8 +24,6 @@ const SOAP_HOST = process.env.SOAP_HOST || 'worldserver';
 const SOAP_PORT = parseInt(process.env.SOAP_PORT || '7878', 10);
 const SOAP_LOGIN = process.env.SOAP_LOGIN || 'webreg';
 const SOAP_PASSWORD = process.env.SOAP_PASSWORD || 'changeme';
-const PATCHES_DIR = path.join(__dirname, 'static', 'patches');
-const ARCHIVE_NAME = 'patches-client.zip'; // 按客户端路径层级打包的整包
 
 // ---- 会话（内存；单实例足够。多实例请换外部存储）----
 const sessions = new Map(); // sid -> { captcha, ts }
@@ -124,32 +119,6 @@ app.post('/register', (req, res) => {
   });
 });
 
-// ---- 补丁下载（注册成功后页面调用）----
-// ・无 addon 参数：返回按客户端路径层级打包的整包（patches-client.zip），
-//   解压到 WoW 客户端根目录即落到 Data/ 与 Interface/AddOns/。
-// ・带 addon 参数：仅返回该 AddOn 的单包（沿用原 tar.gz 逻辑）。
-app.get('/download', (req, res) => {
-  const name = String(req.query.addon || '');
-  if (!name) {
-    const archive = path.join(PATCHES_DIR, ARCHIVE_NAME);
-    if (!fs.existsSync(archive)) return res.status(404).end();
-    res.setHeader('Content-Disposition', `attachment; filename="${ARCHIVE_NAME}"`);
-    res.setHeader('Content-Type', 'application/zip');
-    return fs.createReadStream(archive).pipe(res);
-  }
-  if (!/^[a-zA-Z0-9_-]+$/.test(name)) return res.status(400).end();
-  const found = collectAddons().find(a => a.name === name);
-  if (!found) return res.status(404).end();
-  try {
-    const buf = execFileSync('tar', ['czf', '-', '-C', found.dir, '.']);
-    res.setHeader('Content-Disposition', `attachment; filename="${name}.tar.gz"`);
-    res.setHeader('Content-Type', 'application/gzip');
-    res.end(buf);
-  } catch (e) {
-    res.status(500).end();
-  }
-});
-
 // ---- SOAP: account create ----
 function createAccountSoap(username, password, cb) {
   const cmd = `account create ${username} ${password}`;
@@ -185,36 +154,6 @@ function createAccountSoap(username, password, cb) {
   req.end();
 }
 
-// ---- 收集补丁 AddOn（与源码布局解耦）----
-// client-patches/ 按模组分子目录（<module>/addon/<AddonName>/），
-// 这里递归扫描所有含 .toc 的目录作为 AddOn 根，返回 [{name, dir}]。
-function collectAddons() {
-  const out = [];
-  const seen = new Set();
-  const walk = (dir) => {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
-    catch { return; }
-    for (const e of entries) {
-      if (!e.isDirectory()) continue;
-      const p = path.join(dir, e.name);
-      let hasToc = false;
-      try { hasToc = fs.readdirSync(p).some(f => f.toLowerCase().endsWith('.toc')); }
-      catch { hasToc = false; }
-      if (hasToc) {
-        if (!seen.has(e.name)) { out.push({ name: e.name, dir: p }); seen.add(e.name); }
-      } else {
-        walk(p);
-      }
-    }
-  };
-  try { walk(PATCHES_DIR); } catch { /* ignore */ }
-  return out;
-}
-
-// 兼容旧调用名
-function listAddons() { return collectAddons().map(a => a.name); }
-
 // ---- HTML ----
 function pageHtml(err) {
   const errMsg = err ? `<p class="err">${escapeHtml(err)}</p>` : '';
@@ -248,29 +187,17 @@ button:hover{background:#1d4ed8}
 }
 
 function successHtml(user) {
-  const addons = listAddons();
-  const addonLinks = addons.length
-    ? `<p class="small">或仅单独下载某个插件：</p><ul>${addons.map(n => `<li><a href="/download?addon=${encodeURIComponent(n)}">${escapeHtml(n)}（仅该插件）</a></li>`).join('')}</ul>`
-    : '';
   return `<!doctype html><html lang="zh"><head><meta charset="utf-8">
 <title>注册成功</title><style>
 body{font-family:system-ui,-apple-system,"Microsoft YaHei",sans-serif;background:#0f172a;color:#e2e8f0;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
 .card{background:#1e293b;padding:32px 28px;border-radius:12px;width:440px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 h1{font-size:20px;margin:0 0 10px;color:#4ade80}
-.big{display:block;text-align:center;background:#2563eb;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600}
-.big:hover{background:#1d4ed8}
-.small{font-size:12px;color:#94a3b8;margin:16px 0 6px}
-ul{margin:6px 0 0;padding-left:20px;line-height:1.9}
-a{color:#60a5fa}
-.note{font-size:12px;color:#64748b;margin-top:16px}
+.note{font-size:13px;color:#94a3b8;margin-top:16px}
 code{background:#0f172a;padding:2px 6px;border-radius:4px}
 </style></head><body><div class="card">
 <h1>账号 ${escapeHtml(user)} 创建成功！</h1>
-<p>下载客户端补丁（已按 WoW 客户端目录层级打包，解压到客户端根目录即用）：</p>
-<a class="big" href="/download">⬇ 下载全部补丁 patches-client.zip</a>
-<p class="note">解压后会自动落到 <code>Data/</code>（MPQ 补丁）与 <code>Interface/AddOns/</code>（插件）。</p>
-${addonLinks}
 <p class="note">用刚注册的账号启动游戏客户端即可进入。</p>
+<p class="note">客户端补丁（含 MPQ 与插件）请在官网下载页获取，解压到 WoW 3.3.5a 客户端根目录。</p>
 </div></body></html>`;
 }
 

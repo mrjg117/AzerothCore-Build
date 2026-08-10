@@ -39,7 +39,7 @@
 
     <div class="card" style="border-color:var(--accent);">
       <h2>一键安装（部署机控制台）</h2>
-      <p class="desc" style="margin-top:0;">在部署机终端粘贴运行下面这一行，脚本会自动从本 Pages 站点拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（一键部署 / 更新配置 / 重下地图 / 重部署主页 / 启停 / 日志）。</p>
+      <p class="desc" style="margin-top:0;">在部署机终端粘贴运行下面这一行，脚本会自动从本 Pages 站点拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（一键部署 / 更新配置 / 重下地图 / 启停 / 状态日志 / 编辑.env / 下载补丁）。</p>
       <div class="file">
         <div class="meta">
           <div class="name">curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh &amp;&amp; bash deploy-console.sh https://ac-deploy.pages.dev</div>
@@ -69,7 +69,7 @@
         <div class="file">
           <div class="meta">
             <div class="name">docker-compose.override.yml</div>
-            <div class="desc">我们的扩展：换镜像地址 + 追加注册页 ac-web</div>
+            <div class="desc">我们的扩展：仅换镜像地址（注册页 ac-web 源码保留，已不再纳入部署）</div>
           </div>
           <a class="btn" href="./docker-compose.override.yml" download>下载</a>
         </div>
@@ -106,25 +106,39 @@
         <li><code>bash inject-config.sh</code> —— 把自定义配置导出到 <code>env/dist/etc/</code>。</li>
         <li><code>docker compose up -d</code> —— 起库 → 导库（含 43 模组 SQL）→ 灌地图 → 起服。</li>
       </ol>
-      <p class="warn" style="margin-top:14px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。首次部署需手动建一个 gmlevel=1 的 <code>webreg</code> 账号供注册页 SOAP 调用。</p>
+      <p class="warn" style="margin-top:14px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。首次部署需手动建一个 gmlevel=1 的 <code>webreg</code> 账号（密码与 <code>.env</code> 的 <code>SOAP_PASSWORD</code> 一致），供外部注册服务（Cloudflare Function）SOAP 调用。</p>
       <p>完整说明见 <a class="link" href="./README.md">README.md</a>。</p>
     </div>
 
     <div class="card">
       <h2>玩家客户端补丁（给玩家下，不是服务器用）</h2>
-      <div class="files">
-        <div class="file">
-          <div class="meta">
-            <div class="name">patches-client.zip</div>
-            <div class="desc">3.1 MB · 解压到 WoW 3.3.5a 客户端根目录：Data/zhCN/*.mpq + Interface/AddOns/*（地图数据不在内，服务端自带）</div>
-          </div>
-          <a class="btn" href="./patches/patches-client.zip" download>下载</a>
+      <p class="desc" style="margin-top:0;">整包约 3.1 MB（MPQ 本身已压缩，zip 后保持很小，远低于 25 MiB 上限；若未来补丁增大超过 24 MiB 会自动分卷）。复制下面一行，在玩家机器（或服务器）终端粘贴运行，即<b>一键批量下载并自动合并解压</b>（"点一下下一堆"）。</p>
+      <div class="file">
+        <div class="meta">
+          <div class="name">bash &lt;(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev</div>
         </div>
+        <a class="btn" href="#" onclick="navigator.clipboard.writeText('bash <(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev');this.textContent='已复制';return false;">复制</a>
       </div>
-      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:10px;">注册成功后跳转到注册成功页，可单独下载某个 AddOn。</p>
+      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可。运行后把 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端根目录。地图数据由服务端自带，不在补丁内。</p>
+      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:6px;">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a> · 或手动逐卷下载：</p>
+      <div class="files" id="patch-parts"></div>
     </div>
 
-    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config / build-web）· 分发：Cloudflare Pages</footer>
+    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config）· 分发：Cloudflare Pages</footer>
   </div>
+  <script>
+    // 动态列出分卷，避免硬编码文件名（数量随补丁大小变化）
+    fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
+      var parts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
+        .map(function (l) { return l.slice(5).split(' ')[0]; });
+      var box = document.getElementById('patch-parts');
+      if (!box || !parts.length) return;
+      box.innerHTML = parts.map(function (p) {
+        return '<div class="file"><div class="meta"><div class="name">' + p +
+          '</div><div class="desc">分卷（所有卷下载后合并解压到客户端根目录）</div></div>' +
+          '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
+      }).join('');
+    }).catch(function () {});
+  </script>
 </body>
 </html>

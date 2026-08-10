@@ -21,7 +21,7 @@ docker compose pull
 # 4. 注入自定义配置（ac-extra-config 把 confs 烤进 env/dist/etc，官方 cp -n 合并）
 bash inject-config.sh
 
-# 5. 官方原生启动（零修改，仅读 override 换镜像 + 追加 ac-web）
+# 5. 官方原生启动（零修改，仅读 override 换镜像；注册页 ac-web 已不再纳入部署）
 docker compose up -d
 
 # 6. 建 SOAP 账号（注册页用它调 worldserver 执行 account create）
@@ -46,5 +46,5 @@ docker compose up -d ac-worldserver
 - **加/换模组**：改 `config/modules.txt` → 重新跑 `build-core.yml` → 重新从 CF Pages 取部署包部署（镜像 tag 变了则更新 .env 的 IMAGE_TAG）。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`（`ac-maps` 重新烤入，替换官方 client-data）。
 - **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 重新 `bash deploy/inject-config.sh`。
-- **改注册页 / 客户端补丁**：改 `web/wotlk-web/*` 或 `client-patches/*` → 重新跑 `build-web.yml`（补丁整包在镜像构建时现打）。
+- **改客户端补丁**：改 `client-patches/*` → 重新跑 Pages 构建（`build-pages.sh` 现打补丁包）。`web/wotlk-web/` 为注册页源码，保留但未部署，改动后由 Cloudflare 侧重新发布。
 - **同步官方文件**：AC 更新后重新拉取 `deploy/docker-compose.yml` 与 `deploy/conf/dist/env.ac` 覆盖（见 `deploy/README.md`）。

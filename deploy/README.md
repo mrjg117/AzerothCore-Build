@@ -8,22 +8,25 @@ GitHub 只负责构建镜像并推送到 TCR / DockerHub，**分发走 CF Pages*
 **提交进仓库（源文件）：**
 | 文件 | 说明 |
 |---|---|
-| `docker-compose.override.yml` | 官方钦定扩展点：换镜像地址 + 追加 `ac-web` 注册页 |
+| `docker-compose.override.yml` | 官方钦定扩展点：仅换镜像地址（`ac-web` 已不再纳入部署，源码保留于 `web/wotlk-web/`） |
 | `.env.example` | 部署变量样例，复制为 `.env` 后填写 |
 | `inject-config.sh` | 部署机把自定义配置注入卷（拉 `ac-extra-config` 导出到 `env/dist/etc/`） |
 | `index.html` | CF Pages 下载/说明页 |
 | `README.md` | 本说明 |
 | `build-pages.sh` | 构建脚本：现拉官方文件 + 现打两个压缩包 |
-| `deploy-console.sh` | 部署机控制台：从 Pages 现拉文件 → 生成 `.env` → 交互式菜单（一键部署/更新配置/重下地图/重部署主页/启停/日志） |
+| `deploy-console.sh` | 部署机控制台：从 Pages 现拉文件 → 生成 `.env` → 交互式菜单（一键部署/更新配置/重下地图/启停/状态日志/编辑.env/下载补丁） |
 
 **构建时现拉 / 现打（不进仓库，`.gitignore` 已忽略）：**
 | 文件 | 来源 |
 |---|---|
 | `docker-compose.yml` | 官方，由 `build-pages.sh` 从上游拉取（原样使用，勿改） |
 | `conf/dist/env.ac` | 官方，由 `build-pages.sh` 从上游拉取（编译器/路径；**DB 密码不在此**） |
-| `patches/patches-client.zip` | 由 `scripts/make-client-archive.py` 现打（玩家客户端补丁） |
+| `patches/patches-client.zip.*` | 由 `scripts/make-client-archive.py` 现打后按需 `split -b 24m` 分卷（每卷 <25 MiB；整包约 3.1 MB，MPQ 已压缩，当前为单文件分发） |
+| `patches/patches-manifest.txt` | 分卷顺序清单（file 列表 + count + 合并 sha256），供 `download-patches.sh` 批量下载合并 |
 | `ac-deploy.zip` | 由 `build-pages.sh` 把上述配置打包成的整包 |
 | `VERSION` | 当前镜像 tag，由 `build-pages.sh` 从 `.env.example` 导出 |
+
+> **玩家补丁分发**：整包约 3.1 MB（MPQ 本身已压缩，zip 后保持很小，远低于 Cloudflare Pages / 阿里云 ESA Pages 单文件 25 MiB 上限，故当前作为单文件分发）。`build-pages.sh` 仍内置分卷逻辑：若补丁未来增大超过 24 MiB 会自动 `split -b 24m` 切分并生成 `patches-manifest.txt`。玩家用 Pages 上的「一键下载脚本」（`download-patches.sh`，读清单按序下所有分卷 → `cat` 合并 → `unzip`）即可「点一下下一堆」拿到完整包，单文件时同样适用。
 
 > 这样官方两份文件永远是最新、且不会因副本过期踩坑；补丁包也总是最新。
 
@@ -53,8 +56,7 @@ curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh \
 - `1` 一键部署（pull 全部镜像 + up -d）
 - `2` 更新配置（重拉 `ac-extra-config` + 注入 + 重启 worldserver）
 - `3` 重新下地图（重拉 `ac-maps` + 重建 `ac-client-data-init` + 重启 worldserver）
-- `4` 重新部署主页（重拉 `ac-web` + 重建）
-- `5` 启/停/重启  `6` 状态/日志  `7` 编辑 `.env`
+- `4` 启/停/重启  `5` 状态/日志  `6` 编辑 `.env`  `7` 下载玩家补丁
 
 **方式 B —— 手动**：
 
@@ -81,7 +83,7 @@ docker compose up -d
 ```
 
 首次部署还需：
-- 手动建一个 `gmlevel=1` 的 `webreg` 账号（密码与 `.env` 的 `SOAP_PASSWORD` 一致），供注册页 SOAP 调用。
+- 手动建一个 `gmlevel=1` 的 `webreg` 账号（密码与 `.env` 的 `SOAP_PASSWORD` 一致），供外部注册服务（Cloudflare Function）SOAP 调用。
 - 改 realm 对外地址：`REALM_ADDRESS` 填好后，按需在 auth 库 `realmlist` 表改 `address`。
 
 ## 数据库密码在哪改（重要）
