@@ -6,7 +6,7 @@ on:
     branches: [main, master]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   ACORE_REF: master
@@ -54,35 +54,18 @@ jobs:
             name=$(basename "$url" .git); name=${name%-master}
             echo "-> $url => modules/$name"
             git clone --depth 1 "$url" "modules/$name"
-          done < ../acore-build-repo/modules.txt
-
-      - name: Compute VERSION
-        id: ver
-        run: echo "version=$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+          done < ../acore-build-repo/config/modules.txt
 
       - name: Build & push 4 official server targets (TCR + DockerHub)
         run: |
           cd official
+          VERSION="$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)"
           CACHE="--cache-from=type=local,src=/tmp/acache --cache-to=type=local,mode=max,dest=/tmp/acache"
           # 注：client-data target 由 build-maps.yml 的 ac-maps 镜像取代
           for t in worldserver authserver db-import tools; do
-            TAGS="tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:${{ steps.ver.outputs.version }},tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:latest"
+            TAGS="tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:$VERSION,tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:latest"
             if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-              TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:${{ steps.ver.outputs.version }},docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:latest"
+              TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:$VERSION,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:latest"
             fi
             docker buildx build $CACHE --target "$t" -f apps/docker/Dockerfile --build-arg CMODULES=static --tag "$TAGS" --push .
           done
-
-      - name: Assemble deploy bundle
-        run: |
-          cd official
-          bash ../acore-build-repo/scripts/assemble-deploy-bundle.sh "${{ steps.ver.outputs.version }}" "$PWD/../acore-build-repo"
-
-      - name: Upload bundle to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: deploy-${{ steps.ver.outputs.version }}
-          name: Deploy Bundle ${{ steps.ver.outputs.version }}
-          files: acore-build-repo/ac-deploy-*.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

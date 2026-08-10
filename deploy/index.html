@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AzerothCore 部署包</title>
+  <style>
+    :root { --bg:#0f1117; --card:#1a1d27; --fg:#e6e8ee; --muted:#9aa3b2; --accent:#5b8cff; --line:#2a2f3d; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+           background:var(--bg); color:var(--fg); line-height:1.6; }
+    .wrap { max-width:860px; margin:0 auto; padding:48px 20px 80px; }
+    h1 { font-size:28px; margin:0 0 6px; }
+    .sub { color:var(--muted); margin:0 0 32px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
+    .card h2 { font-size:17px; margin:0 0 14px; color:var(--accent); }
+    .files { display:grid; grid-template-columns:1fr; gap:10px; }
+    .file { display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:12px 14px; background:#14161f; border:1px solid var(--line); border-radius:9px; }
+    .file .meta { min-width:0; }
+    .file .name { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; color:#cdd6f4; word-break:break-all; }
+    .file .desc { font-size:12px; color:var(--muted); margin-top:2px; }
+    a.btn { flex:none; text-decoration:none; background:var(--accent); color:#fff; font-size:13px;
+            padding:7px 14px; border-radius:7px; white-space:nowrap; }
+    a.btn:hover { filter:brightness(1.1); }
+    ol { margin:0; padding-left:20px; }
+    ol li { margin:8px 0; }
+    code { background:#14161f; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13px; color:#cdd6f4; }
+    .warn { border-color:#5a3a1a; background:#2a1f14; color:#ffd9a8; }
+    .warn b { color:#ffb866; }
+    footer { color:var(--muted); font-size:12px; text-align:center; margin-top:32px; }
+    a.link { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>AzerothCore 部署包</h1>
+    <p class="sub">本页由 Cloudflare Pages 托管 · 部署所需文件均可直接下载 · 镜像由 GitHub Actions 构建并推送到 TCR / DockerHub</p>
+
+    <div class="card">
+      <h2>下载部署文件</h2>
+      <div class="files">
+        <div class="file">
+          <div class="meta">
+            <div class="name">docker-compose.yml</div>
+            <div class="desc">官方编排（原样使用，勿改）</div>
+          </div>
+          <a class="btn" href="./docker-compose.yml" download>下载</a>
+        </div>
+        <div class="file">
+          <div class="meta">
+            <div class="name">docker-compose.override.yml</div>
+            <div class="desc">我们的扩展：换镜像地址 + 追加注册页 ac-web</div>
+          </div>
+          <a class="btn" href="./docker-compose.override.yml" download>下载</a>
+        </div>
+        <div class="file">
+          <div class="meta">
+            <div class="name">.env.example</div>
+            <div class="desc">部署变量样例 → 复制为 .env 后填密码/地址</div>
+          </div>
+          <a class="btn" href="./.env.example" download>下载</a>
+        </div>
+        <div class="file">
+          <div class="meta">
+            <div class="name">conf/dist/env.ac</div>
+            <div class="desc">官方环境模板（编译器/路径，DB 密码不在此）</div>
+          </div>
+          <a class="btn" href="./conf/dist/env.ac" download>下载</a>
+        </div>
+        <div class="file">
+          <div class="meta">
+            <div class="name">inject-config.sh</div>
+            <div class="desc">部署机把自定义配置注入卷（拉 ac-extra-config 导出）</div>
+          </div>
+          <a class="btn" href="./inject-config.sh" download>下载</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>快速部署（5 步）</h2>
+      <ol>
+        <li>把本页文件整包下载到部署机，进入该目录。</li>
+        <li><code>cp .env.example .env</code>，编辑：<code>IMAGE_TAG</code>（或留 <code>latest</code>）、<code>DOCKER_DB_ROOT_PASSWORD</code>、<code>SOAP_PASSWORD</code>、<code>REALM_ADDRESS</code>、<code>TCR_NS</code>。</li>
+        <li><b>务必先</b> <code>docker compose pull</code> —— 从 TCR/DockerHub 拉镜像，漏这步会在服务器本地触发编译。</li>
+        <li><code>bash inject-config.sh</code> —— 把自定义配置导出到 <code>env/dist/etc/</code>。</li>
+        <li><code>docker compose up -d</code> —— 起库 → 导库（含 43 模组 SQL）→ 灌地图 → 起服。</li>
+      </ol>
+      <p class="warn" style="margin-top:14px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。首次部署需手动建一个 gmlevel=1 的 <code>webreg</code> 账号供注册页 SOAP 调用。</p>
+      <p>完整说明见 <a class="link" href="./README.md">README.md</a>。</p>
+    </div>
+
+    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config / build-web）· 分发：Cloudflare Pages</footer>
+  </div>
+</body>
+</html>
