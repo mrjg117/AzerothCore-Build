@@ -92,6 +92,18 @@ async function handleRegister(request, env) {
     return json({ ok: false, message: 'Method Not Allowed' }, 405);
   }
 
+  // 轻量防刷：内核内存 map 按 IP，按天计数 + 重试计数；只防坏人，不求精确
+  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
+  const rate = globalThis.__acRate || (globalThis.__acRate = new Map());
+  const _now = Date.now();
+  const _day = Math.floor(_now / 86400000);
+  let e = rate.get(ip);
+  if (!e || e.day !== _day) { e = { day: _day, reg: 0, tries: 0, blockUntil: 0 }; rate.set(ip, e); }
+  if (_now < e.blockUntil) return json({ ok: false, message: '请求过于频繁，请稍后再试' }, 429);
+  e.tries++;
+  if (e.tries > 50) { e.blockUntil = _now + 86400000; return json({ ok: false, message: '请求过于频繁，请稍后再试' }, 429); }
+  if (e.reg >= 10) return json({ ok: false, message: '今日注册次数已达上限，明天再来' }, 429);
+
   let body;
   try {
     body = await request.json();
@@ -118,7 +130,7 @@ async function handleRegister(request, env) {
 
   const res = await soapAccountCreate(username, password, env);
   if (res === 'exists') return json({ ok: false, message: '账号已存在' }, 409);
-  if (res === 'ok') return json({ ok: true, message: '注册成功，可直接登录游戏' });
+  if (res === 'ok') { e.reg++; return json({ ok: true, message: '注册成功，可直接登录游戏' }); }
   return json({ ok: false, message: res || '注册服务暂时不可用' }, 502);
 }
 
