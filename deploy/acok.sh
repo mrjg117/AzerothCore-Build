@@ -3,7 +3,7 @@
 # 部署控制台（在部署机上运行）
 # ------------------------------------------------------------
 # 安装：从 Cloudflare Pages 复制下面这一行，粘贴到部署机终端运行
-#   curl -fsSL <BASE_URL>/deploy-console.sh -o deploy-console.sh && bash deploy-console.sh <BASE_URL>
+#   curl -fsSL <BASE_URL>/acok.sh -o acok.sh && bash acok.sh <BASE_URL>
 # 说明：
 #   * 脚本会从 <BASE_URL>（即 Pages 站点）现拉部署所需的几个文件，
 #     不进 git、不手动打包；官方编排文件也由 Pages 在构建时从上游现拉。
@@ -11,7 +11,7 @@
 #   * 之后就是一个交互式菜单控制台，支持一键部署 / 更新配置 / 重下地图 /
 #     启停 / 状态日志 / 编辑配置 等。
 # ============================================================
-[ -z "${1:-}" ] && { echo "用法: bash deploy-console.sh <Pages_BASE_URL>"; exit 1; }
+[ -z "${1:-}" ] && { echo "用法: bash acok.sh <Pages_BASE_URL>"; exit 1; }
 BASE_URL="$1"
 WORK_DIR="$PWD"
 
@@ -142,7 +142,7 @@ while true; do
       pause
       ;;
     6) configure ;;
-    0) echo "退出。文件都在 $WORK_DIR，可随时再来：bash deploy-console.sh $BASE_URL"; exit 0 ;;
+    0) echo "退出。文件都在 $WORK_DIR，可随时再来：bash acok.sh $BASE_URL"; exit 0 ;;
     *) echo "无效选择" ;;
   esac
 done

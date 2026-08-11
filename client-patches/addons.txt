@@ -1,0 +1,10 @@
+# 玩家补丁 AddOn 清单（构建期从上游直拉，不入库）
+# 格式：<模组目录名><空白><上游 git 地址>
+# 说明：
+#   - 模组目录名 = client-patches/<name>/addon/ 的 <name>，也是 Interface/AddOns 下的目录名
+#   - 脚本会 git clone --depth 1 上游，取其中的 client_addon/ 拷到 client-patches/<name>/addon/
+#   - 没有 client_addon/ 的模组（如仅含 MPQ）不在此列；其 MPQ 直接放 client-patches/<name>/mpq/
+#   - 想加/换模组：改这个列表即可，build.sh 会按列表现拉现打
+guild-levels          https://github.com/Old-Man-Warcraft/mod-guild-levels.git
+bot-inventory-master  https://github.com/TopHatMan/mod-bot-inventory-master.git
+item-affixes         https://github.com/Nevaden/mod-item-affixes.git

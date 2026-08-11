@@ -24,15 +24,15 @@ client-patches/
 
 - **MPQ 单份**：中文客户端 locale 目录为 `Data/zhCN/`，故只放 `zhCN/` 一份
   （不再有根目录与 `enUS/` 重复拷贝）。打包后落到玩家客户端 `Data/zhCN/`。
-- **AddOn 不在仓库内**：构建时 `build-pages.sh` 直接 clone 上游模组的 `client_addon/`
+- **AddOn 不在仓库内**：构建时 `build.sh` 按 `client-patches/addons.txt` 列表直接 clone 上游模组的 `client_addon/`
   拉取到此目录再打包（上游没了模组本身也编译不了，本地备份无意义）。
   本目录只保留自定义中文补丁 MPQ（`item-affixes/mpq`）。
 
 ## 打包（整包不在仓库，Cloudflare Pages 构建时现打）
 
-`patches-client.zip` **不提交进仓库**。Cloudflare Pages 构建（`build-pages.sh`）时，
-先直拉上游 AddOn、再调用 `client-patches/make-archive.py` 把本目录按 WoW 目录层级
-现场打成 zip（按需分卷），由 Pages 分卷分发，玩家在 Pages 主页手动逐卷下载。
+`patches-client.zip` **不提交进仓库**。Cloudflare Pages 构建（`build.sh`）时，
+先按 `addons.txt` 直拉上游 AddOn、再调用 `client-patches/make-archive.py` 把本目录按 WoW 目录层级
+现场打成 zip（整包 > 24 MiB 时自动分卷），由 Pages 分卷分发，玩家在 Pages 主页手动逐卷下载或点「下载全部」合并。
 
 扫描规则（与布局解耦）：任意 `*.mpq` → 路径含 locale(`zhCN`) 则落 `Data/zhCN/`；
 含 `.toc` 的目录 → `Interface/AddOns/<名>/`。结果层级：

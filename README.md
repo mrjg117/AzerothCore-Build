@@ -1,4 +1,4 @@
-# AzerothCore-Build（全照搬官方）
+# AzerothCore-OK（全照搬官方）
 
 基于官方 [`azerothcore/azerothcore-wotlk`](https://github.com/azerothcore/azerothcore-wotlk) 原生编排构建的 WotLK（3.3.5a）私服镜像源与部署包。
 
@@ -16,7 +16,7 @@
 | `ac-wotlk-worldserver` / `authserver` / `db-import` / `tools` | `build-core.yml` | 官方 4 个 server target（克隆官方 + 43 模组，`MODULES=static` 静态编入） |
 | `ac-maps` | `build-maps.yml` | 社区地图源 `wowgaming/client-data@v20.0` 烤入，替换官方 `client-data`（部署机零提取） |
 | `ac-extra-config` | `build-config.yml` | 自定义 `.conf` 注入镜像（按模组分子目录） |
-| `ac-deploy`（Pages 产物） | `build-pages.sh` | 部署包静态站（含 `index.html` 下载页、配置、`patches/` 分卷补丁） |
+| `ac-deploy`（Pages 产物） | `build.sh` | 部署包静态站（含 `index.html` 下载页、配置、`patches/` 分卷补丁） |
 
 CI 工作流（均在 Actions 跑）：
 - `build-core.yml`：克隆官方 + 43 模组，构建 4 个 server target，推双仓库。
@@ -26,13 +26,14 @@ CI 工作流（均在 Actions 跑）：
 ## 目录结构
 
 ```
-AzerothCore-Build/
+AzerothCore-OK/
 ├── .github/workflows/        CI：build-core / build-maps / build-config
 ├── client-patches/            玩家客户端补丁源（按模组分子目录）；Pages 构建时打成
 │                              patches-client.zip 再分卷。MPQ 仅 zhCN 单份（仓库内保留），
-│                              AddOn 由构建期从上游直拉，不落库
+│                              AddOn 由构建期按 addons.txt 列表从上游直拉，不落库
+│   ├── addons.txt             AddOn 上游清单（<模组名><空白><git 地址>），build.sh 按列表现拉
 │   └── make-archive.py        把 client-patches/ 按 WoW 目录层级（Data/zhCN + Interface/AddOns）
-│                              打成 patches-client.zip（被 build-pages.sh 调用）
+│                              打成 patches-client.zip（被 build.sh 调用）
 ├── config/
 │   ├── modules.txt            43 个模组 Git 地址清单（编译期克隆进官方 modules/，去 -master 后缀）
 │   ├── extra-config/          自定义配置注入镜像源（ac-extra-config）
@@ -43,16 +44,35 @@ AzerothCore-Build/
 │   ├── index.html             Pages 主页：注册 + 补丁下载 + 一键部署 + 简介/说明
 │   ├── docker-compose.override.yml   官方钦定唯一扩展点：仅换镜像地址
 │   ├── .env.example           部署变量样例
-│   ├── build-pages.sh         Pages 构建命令（现拉官方文件 + 现打补丁分卷 + 现打 ac-deploy.zip）
-│   ├── deploy-console.sh      部署机交互控制台（拉文件 / 生成 .env / 菜单，配置注入已内联）
+│   ├── build.sh               Pages 构建命令（现拉官方文件 + 现打补丁分卷 + 现打 ac-deploy.zip）
+│   ├── acok.sh                部署机交互控制台（拉文件 / 生成 .env / 菜单，配置注入已内联）
 │   └── （以下为构建产物，不进库）docker-compose.yml / conf/dist/env.ac / ac-deploy.zip / VERSION / patches/*
 ```
 
-> `deploy/docker-compose.yml` 与 `conf/dist/env.ac` 是官方文件，由 `build-pages.sh` 在构建时从上游 raw 现拉，不进库（保证最新、不副本过期）。
+> `deploy/docker-compose.yml` 与 `conf/dist/env.ac` 是官方文件，由 `build.sh` 在构建时从上游 raw 现拉，不进库（保证最新、不副本过期）。
 
 ## 注册方案
 
 账号注册**不在本仓库内实现**，由 **Cloudflare 侧**承接：Pages 表单（即 `deploy/index.html` 的注册区块）提交到 **Cloudflare Function**（`/api/register`），Function 做图形验证 / 限频 / 白名单后，调 `worldserver` 的 SOAP `account create` 建号（SRP6 由核心自算）。
+
+### 托管形态：Pages + Function（推荐）还是 Worker？
+- **Pages + Function（推荐）**：静态站（`index.html` 等）与 API（`/api/register`）同站同源，一个 Pages 项目搞定，CORS 天然同源、配置最少。本项目默认就这形态——`index.html` 里的 `REG_API = location.origin + '/api/register'` 依赖同源 Function。
+- **Worker**：若想用单个 Worker 同时托管静态页 + 注册逻辑，把 `index.html` 放进 Worker 的静态资源（Workers Assets）或让 Worker 纯做 API、静态仍走 Pages。更灵活但要自己处理静态托管与路由。
+- 结论：本项目**用 Pages + Function 最省事**；Worker 是「想更可控」时的备选。
+
+### Function 所需环境变量（即你需要填的信息）
+Function 要调通 worldserver 的 SOAP，必须知道**后端（部署机）的可达地址**与**凭据**：
+
+| 变量 | 说明 | 来源 |
+|---|---|---|
+| `WORLD_HOST` | 部署机（worldserver）的公网**域名或 IP**（Function 据此连 SOAP） | **你填：部署机的域名或 IP** |
+| `WORLD_PORT` | SOAP 端口，固定 `7878` | 默认 |
+| `SOAP_LOGIN` | SOAP 账号，固定 `webreg` | 与 `.env` 一致 |
+| `SOAP_PASSWORD` | webreg 的密码 | 与 `.env` 的 `SOAP_PASSWORD` 一致 |
+| `ALLOWED_ORIGIN`（可选） | 允许的页面来源，做 CORS 校验 | 你的 Pages 域名 |
+| `TURNSTILE_SECRET` / `RATE_LIMIT`（可选） | 图形验证 / 限频，防刷号 | 按需 |
+
+> 也就是说你**只需要提供部署机的域名或 IP**（Function 据此连 `:7878` 的 SOAP），其余凭据与 `.env` 的 `SOAP_*` 保持一致即可。
 
 本仓库只提供 worldserver 的 SOAP 通道（默认 `SOAP.IP=0.0.0.0`、Port 7878）。CF Function 落地时建议把 `SOAP.IP` 改绑 `127.0.0.1`（只让 Function 经 localhost 访问，不向公网开端口）。首次部署需手动建一个 `gmlevel=1` 的 `webreg` 账号（密码与 `.env` 的 `SOAP_PASSWORD` 一致）供 Function 调用。
 
@@ -98,8 +118,8 @@ docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 - **加/换模组**：改 `config/modules.txt` → 重新跑 `build-core.yml` → 重新从 CF Pages 取部署包部署（镜像 tag 变了则更新 .env 的 IMAGE_TAG）。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
 - **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 部署控制台菜单 `[2] 更新配置` 注入。
-- **改客户端补丁**：改 `client-patches/*` → 重新跑 Pages 构建（`build-pages.sh` 现打补丁包）。
-- **同步官方文件**：AC 更新后 `build-pages.sh` 步骤①会自动从上游现拉 `docker-compose.yml` 与 `env.ac`。
+- **改客户端补丁**：改 `client-patches/*` 或 `client-patches/addons.txt` → 重新跑 Pages 构建（`build.sh` 现打补丁包）。
+- **同步官方文件**：AC 更新后 `build.sh` 步骤①会自动从上游现拉 `docker-compose.yml` 与 `env.ac`。
 
 ## 快速上手
 

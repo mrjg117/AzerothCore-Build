@@ -90,6 +90,8 @@
       <p class="note" style="margin-top:10px;">下载后把解压出的 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端【根目录】即可。地图数据由服务端自带，不在补丁内。</p>
       <p class="note">Windows 用户不想用命令，可手动逐卷下载（合并顺序见清单）：</p>
       <div class="files" id="patch-parts"></div>
+      <p class="note">或点下面一键下载全部分卷并合并为单个 zip：</p>
+      <a class="btn" id="dlAll" href="#" style="border:none;">下载全部（合并为单个 zip）</a>
       <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a></p>
     </div>
 
@@ -99,9 +101,9 @@
       <p>在部署机（有公网 IP、装好 Docker）终端粘贴运行下面一行，脚本会自动从本 Pages 站拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（部署 / 更新配置 / 重下地图 / 启停 / 日志）。</p>
       <div class="file">
         <div class="meta">
-          <div class="name">curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh &amp;&amp; bash deploy-console.sh https://ac-deploy.pages.dev</div>
+          <div class="name">curl -fsSL https://ac-deploy.pages.dev/acok.sh -o acok.sh &amp;&amp; bash acok.sh https://ac-deploy.pages.dev</div>
         </div>
-        <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh && bash deploy-console.sh https://ac-deploy.pages.dev');return false;">复制</a>
+        <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://ac-deploy.pages.dev/acok.sh -o acok.sh && bash acok.sh https://ac-deploy.pages.dev');return false;">复制</a>
       </div>
       <p class="note" style="margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可（脚本第二个参数就是来源 BASE_URL）。</p>
     </div>
@@ -136,18 +138,38 @@
       setTimeout(function(){ el.textContent = old; }, 1500);
     }
 
-    // 动态列出分卷（避免硬编码文件名）
+    // 动态列出分卷（避免硬编码文件名），并支持「下载全部」合并为单个 zip
+    var patchParts = [];
     fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
-      var parts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
+      patchParts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
         .map(function (l) { return l.slice(5).split(' ')[0]; });
       var box = document.getElementById('patch-parts');
-      if (!box || !parts.length) return;
-      box.innerHTML = parts.map(function (p) {
+      if (!box) return;
+      if (!patchParts.length) { box.innerHTML = '<div class="note">暂无可下载的补丁分卷</div>'; return; }
+      box.innerHTML = patchParts.map(function (p) {
         return '<div class="file"><div class="meta"><div class="name">' + p +
           '</div><div class="desc">分卷（所有卷下载后按清单顺序合并解压到客户端根目录）</div></div>' +
           '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
       }).join('');
     }).catch(function () {});
+
+    // 一键下载全部分卷并拼接为单个 zip（分卷是同一 zip 的 split 片段，按顺序 cat 即还原）
+    function downloadAll() {
+      if (!patchParts.length) { alert('暂无可下载的补丁分卷'); return; }
+      var fetches = patchParts.map(function (p) {
+        return fetch('./patches/' + p).then(function (r) { return r.arrayBuffer(); });
+      });
+      Promise.all(fetches).then(function (bufs) {
+        var blob = new Blob(bufs, { type: 'application/zip' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'patches-client.zip';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      }).catch(function () { alert('下载全部失败，请改用手动逐卷下载'); });
+    }
+    var dlAll = document.getElementById('dlAll');
+    if (dlAll) dlAll.addEventListener('click', function (e) { e.preventDefault(); downloadAll(); });
 
     // 注册表单：提交到 Cloudflare Function（/api/register）
     var REG_API = location.origin + '/api/register';
