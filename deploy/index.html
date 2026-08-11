@@ -78,7 +78,7 @@
       </form>
     </div>
 
-    <!-- 补丁下载 -->
+    <!-- 客户端补丁 -->
     <div class="card">
       <h2>客户端补丁</h2>
       <a class="btn big" id="dlAll" href="#">点击下载</a>
@@ -141,7 +141,7 @@
       if (!patchParts.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;">暂无可下载的补丁分卷</div>'; return; }
       box.innerHTML = patchParts.map(function (p, i) {
         return '<div class="file"><div class="meta"><div class="name">分卷' + (i + 1) + '：' + p +
-          '</div><div class="desc">单独下载这一卷</div></div>' +
+          '</div></div>' +
           '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
       }).join('');
     }).catch(function () {});
@@ -195,7 +195,7 @@
         else { msg.className = 'err'; msg.textContent = (res.j && res.j.message) || '注册失败'; }
       }).catch(function () {
         msg.className = 'err';
-        msg.textContent = '无法连接注册服务（Worker 可能未部署）。请用 GM 账号手动建号。';
+        msg.textContent = '注册服务连接失败，请稍后再试';
       });
     });
   </script>

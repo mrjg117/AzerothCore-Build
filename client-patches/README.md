@@ -48,10 +48,3 @@ Interface/AddOns/BotInventoryMasterUI/...
 ```
 
 > **启动器.bat**：打包时由 `make-archive.py` 按环境变量 `REALM_ADDRESS`（运营方在 `build.sh` 前设定，默认占位 `play.example.com`）写入服务器地址。玩家解压后双击即可，无需手动改 `realmlist.wtf`。
-
-## MPQ 生成（如需重生成，不在 CI 内）
-
-2026-08-08 修正：构建脚本写入块表标志 `0x81000000`
-（`MPQ_FILE_EXISTS | MPQ_FILE_SINGLE_UNIT`），与单文件 `mpqcreate.ps1` 一致，
-合规客户端加载正常（`conformant: OK (single-unit)`）。本目录内 MPQ 已按此生成验证。
-重生成流程见历史记录，需玩家客户端 DBC 来源，不在构建环境执行。

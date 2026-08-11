@@ -34,7 +34,6 @@ mkdir -p "$WORK_DIR" && cd "$WORK_DIR"
 echo "==> 下载部署文件到 $WORK_DIR"
 curl -fsSL "$REPO_RAW/server/docker-compose.override.yml" -o docker-compose.override.yml
 curl -fsSL "$REPO_RAW/server/.env.example"                 -o .env
-curl -fsSL "$REPO_RAW/config/modules.txt"                 -o modules.txt
 # 官方基础 compose（azerothcore-wotlk 原生编排，我们只覆盖镜像地址）
 curl -fsSL "https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/docker-compose.yml" -o docker-compose.yml
 

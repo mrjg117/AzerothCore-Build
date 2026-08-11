@@ -5,9 +5,9 @@
 **核心原则：官方的东西一个字不改，只换两个端点，其余全部走"追加"。**
 
 - 编译位置：官方 CI → **GitHub Actions**
-- 镜像仓库：Docker Hub → **腾讯云 TCR + DockerHub 双推**
+- 镜像仓库：Docker Hub → **腾讯云 CCR + DockerHub 双推**
 - 分发：玩家补丁 + 注册页 → **Cloudflare Worker（Static Assets）**
-- 定制扩展点：官方钦定的 `docker-compose.override.yml`（本仓库不再分发，基于官方 compose 自行维护）+ 配置注入卷（`cp -n` 不覆盖）
+- 定制扩展点：官方钦定的 `docker-compose.override.yml`（本仓库在 `server/` 下发，acok.sh 拉取）+ 配置注入卷（`cp -n` 不覆盖）
 
 ## 架构
 
@@ -51,15 +51,14 @@ AzerothCore-OK/
 │   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / TCR_NS / SOAP_*）
 ```
 
-> 本仓库**不再提供"服务器端一键部署整包 zip"**（已放弃 `ac-deploy.zip` 与服务端控制台）——但提供 `deploy/acok.sh` 一行部署脚本（由 CF Worker 托管），运营方直接 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
+> 本仓库不提供"服务器端一键部署整包 zip"。提供 `deploy/acok.sh` 一行部署脚本（由 CF Worker 托管），运营方 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
 
 ## 注册方案
 
-注册由 Cloudflare Worker 调 worldserver SOAP 建号（密码不落库明文）。若 Worker 未部署，可用 GM 账号手动建号。
+注册由 Cloudflare Worker 调 worldserver SOAP 建号（密码不落库明文）。
 
 ### 托管形态：Worker（采用）
-- **Worker + Static Assets（本项目采用）**：一个 Worker 既托管静态页（`index.html` 等）又处理 `/api/register`，`wrangler deploy` 一条命令部署，CORS 天然同源、配置最少。CF 正在把 Pages 能力收敛到 Workers，静态资源免费额度与函数调用消耗两者基本一致，直接上 Worker 最省事、也最面向未来。
-- 之前考虑过的 **Pages + Function** 形态已不再采用（部署统一为 Worker 单一形态）。
+- **Worker + Static Assets（本项目采用）**：一个 Worker 既托管静态页（`index.html` 等）又处理 `/api/register`，`wrangler deploy` 一条命令部署，CORS 天然同源、配置最少。
 
 ### Worker 所需环境变量 / 机密（即你需要填的信息）
 Worker 要调通 worldserver 的 SOAP，必须知道**后端（部署机）的可达地址**与**凭据**：
@@ -70,8 +69,6 @@ Worker 要调通 worldserver 的 SOAP，必须知道**后端（部署机）的�
 | `WORLD_PORT` | vars（明文） | SOAP 端口，固定 `7878` | 默认 |
 | `SOAP_LOGIN` | vars（明文） | SOAP 账号，固定 `webreg` | 与 worldserver 一致 |
 | `SOAP_PASSWORD` | **secret** | webreg 的密码 | `wrangler secret put SOAP_PASSWORD`，与 worldserver 一致 |
-| `TURNSTILE_SECRET`（可选） | secret | Cloudflare Turnstile 图形验证密钥；填了才开启验证 | 按需 |
-| `ALLOWED_ORIGIN`（可选） | vars | 允许的页面来源，做 CORS 校验 | 你的 Worker 域名 |
 
 > 也就是说你**只需要提供部署机的域名或 IP**（Worker 据此连 `:7878` 的 SOAP），密码类用 `wrangler secret put` 注入即可。
 
@@ -88,8 +85,6 @@ bash build.sh        # 也可由 CI 在 push 时跑；产物在 deploy/patches/
 # 2. 填 Worker 明文变量（wrangler.toml 的 [vars]：WORLD_HOST / WORLD_PORT / SOAP_LOGIN）
 #    ⚠️ 密码是机密，用 secret 注入：
 wrangler secret put SOAP_PASSWORD
-#    （可选）开启图形验证：
-wrangler secret put TURNSTILE_SECRET
 
 # 3. 一行部署
 npx wrangler deploy
@@ -97,11 +92,11 @@ npx wrangler deploy
 ```
 
 ### 二、游戏服务端（官方原生编排，deploy/acok.sh 一行部署）
-服务端镜像仍由本仓库 CI 构建并推到 TCR/DockerHub；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
+服务端镜像仍由本仓库 CI 构建并推到 CCR/DockerHub；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
 ```bash
 # 在你的服务器（有公网 IP、装好 Docker）终端运行：
 curl -fsSL https://<你的Worker域名>/acok.sh | bash
-# 脚本会：装 Docker → 拉官方 compose + 本仓 override/.env/modules.txt → docker compose pull && up -d
+# 脚本会：装 Docker → 拉官方 compose + 本仓 override/.env → docker compose pull && up -d
 # 可选用环境变量预填：REALM_ADDRESS / TCR_NS / SOAP_PASSWORD（否则手动编辑 .env）
 ```
 也可手动分步（等价于脚本做的事）：
@@ -111,7 +106,7 @@ docker compose -f docker-compose.yml -f server/docker-compose.override.yml pull 
 docker compose -f docker-compose.yml -f server/docker-compose.override.yml up -d  # 零修改启动，自动建库/导库/起服
 docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 ```
-> 数据库密码在官方 compose 读取的 `.env` 的 `DOCKER_DB_ROOT_PASSWORD`，不在 `env.ac`。
+> 数据库密码在官方 compose 读取的 `.env` 的 `DOCKER_DB_ROOT_PASSWORD`。
 
 访问：
 - 游戏：客户端连 `<服务器IP>:3724`（auth）/ `8085`（world；realm 地址填 `REALM_ADDRESS`）
@@ -125,8 +120,8 @@ docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 
 ## 维护
 
-- **镜像双推 TCR + DockerHub**：override 默认走 TCR；想换 DockerHub 改 override 的 image 前缀即可（override 已不再随本仓库分发，请基于官方 compose 自行维护）。
-- **加/换模组**：改 `config/modules.txt` → 重新跑 `build-core.yml` → 镜像 tag 变了则更新服务端 `.env` 的 `IMAGE_TAG`。
+- **镜像双推 CCR + DockerHub**：override 默认走 CCR；想换 DockerHub 改 override 的 image 前缀即可（override 在 `server/`，起服时由 acok.sh 拉取）。
+- **加/换模组**：改 `config/modules.txt` → 重新跑 `build-core.yml`。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
 - **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 服务端重新注入。
 - **改客户端补丁**：改 `client-patches/*` 或 `client-patches/addons.txt` → 重新跑 `build.sh` / `wrangler deploy`。
@@ -134,4 +129,4 @@ docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 
 ## 快速上手
 
-见 `deploy/index.html`（主页即注册页 + 补丁下载 + 简介/说明），或按上方「部署指南」操作。完整构建/回归计划见工作区根的 `_重建计划_全照搬官方.md`。
+见 `deploy/index.html`（主页即注册页 + 补丁下载 + 简介/说明），或按上方「部署指南」操作。

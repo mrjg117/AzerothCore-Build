@@ -27,7 +27,7 @@ jobs:
       - name: Login TCR
         uses: docker/login-action@v3
         with:
-          registry: tcr.ccs.tencentyun.com
+          registry: ccr.ccs.tencentyun.com
           username: ${{ secrets.TCR_USERNAME }}
           password: ${{ secrets.TCR_PASSWORD }}
 
@@ -63,20 +63,9 @@ jobs:
           CACHE="--cache-from=type=local,src=/tmp/acache --cache-to=type=local,mode=max,dest=/tmp/acache"
           # 注：client-data target 由 build-maps.yml 的 ac-maps 镜像取代
           for t in worldserver authserver db-import tools; do
-            TAGS="tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:$VERSION,tcr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:latest"
+            TAGS="ccr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:$VERSION,ccr.ccs.tencentyun.com/${{ secrets.TCR_NS }}/ac-wotlk-$t:latest"
             if [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
               TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:$VERSION,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:latest"
             fi
             docker buildx build $CACHE --target "$t" -f apps/docker/Dockerfile --build-arg CMODULES=static --tag "$TAGS" --push .
           done
-
-      - name: Bump IMAGE_TAG in deploy/.env.example and commit
-        run: |
-          cd ../acore-build-repo
-          VER="$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)"
-          sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$VER/" deploy/.env.example
-          git config user.email "ci@local"
-          git config user.name "ci"
-          git add deploy/.env.example
-          git commit -m "ci: bump IMAGE_TAG to $VER [skip ci]" || echo "no change"
-          git push

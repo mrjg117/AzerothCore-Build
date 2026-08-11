@@ -18,7 +18,7 @@
 #   ARCHIVE_OUT   输出 zip 路径，默认 <PATCHES_DIR>/patches-client.zip
 # 用法（仓库内直接打）：python3 client-patches/make-archive.py
 # 用法（Cloudflare Worker 构建 build.sh 调用）：
-#   PATCHES_DIR=/app/static/patches python3 /app/client-patches/make-archive.py
+#   PATCHES_DIR=<repo>/client-patches python3 <repo>/client-patches/make-archive.py
 # ============================================================
 import os
 import sys
@@ -105,7 +105,6 @@ def build_readme():
         "  - mod-guild-levels           （公会等级；仅 AddOn）\n"
         "  - mod-bot-inventory-master   （机器人背包；仅 AddOn）\n"
         "\n"
-        "AddOn 由构建期从上游模组仓库拉取，未单独提供下载。\n"
     )
 
 

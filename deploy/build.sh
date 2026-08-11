@@ -17,13 +17,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$SCRIPT_DIR"
 
-AC_REPO="azerothcore/azerothcore-wotlk"
-AC_REF="${AC_REF:-master}"
-
 echo "==> [1/2] 构建玩家补丁包 patches-client.zip（AddOns 按 client-patches/addons.txt 列表从上游直拉，MPQ 为仓库内自定义中文补丁）"
 mkdir -p patches
-# AddOns 不落库备份：构建时按 addons.txt 列表 clone 上游 client_addon/ 拉取
-# （上游没了模组本身也编译不了，保留本地备份无意义）
 ADDONS_FILE="$REPO_ROOT/client-patches/addons.txt"
 [ -f "$ADDONS_FILE" ] || { echo "缺少 $ADDONS_FILE"; exit 1; }
 while read -r name url _; do
@@ -75,8 +70,5 @@ fi
 cd "$SCRIPT_DIR"
 echo "    清单 $(wc -l < patches/patches-manifest.txt) 行 -> patches/patches-manifest.txt"
 
-echo "==> [2/2] 准备 Worker 部署单元"
-echo "    deploy/ 目录（index.html + patches/ + worker.js + wrangler.toml）即为部署单元"
-echo "    部署：cd deploy && npx wrangler deploy"
-echo "==> 完成：deploy/ 已就绪，可由 Cloudflare Worker（Static Assets）直接部署"
+echo "==> 完成：deploy/ 已就绪，部署：cd deploy && npx wrangler deploy"
 echo "    生成产物：patches/（patches-client.zip 或分卷 + patches-manifest.txt）"

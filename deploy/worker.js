@@ -1,11 +1,11 @@
 // AzerothCore-OK —— Cloudflare Worker
 // 职责：
-//   1) 处理 /api/register：做基础校验 + 可选 Turnstile 验证后，调 worldserver 的
-//      SOAP `account create` 建号（SRP6 由核心自算，密码不落库明文）。
+//   1) 处理 /api/register：基础校验后调 worldserver 的 SOAP `account create` 建号
+//      （SRP6 由核心自算，密码不落库明文）。
 //   2) 其余请求回退给 Workers Static Assets（注册页 index.html + 补丁 patches/）。
 //
 // 部署：cd deploy && npx wrangler deploy
-// 机密：wrangler secret put SOAP_PASSWORD  （另可选 TURNSTILE_SECRET）
+// 机密：wrangler secret put SOAP_PASSWORD
 // 变量：在 wrangler.toml 的 [vars] 填 WORLD_HOST / WORLD_PORT / SOAP_LOGIN
 
 function json(obj, status = 200) {
@@ -65,25 +65,6 @@ async function soapAccountCreate(username, password, env) {
   }
 }
 
-// 可选：Cloudflare Turnstile 图形验证
-async function verifyTurnstile(token, env, request) {
-  const ip = request.headers.get('CF-Connecting-IP') || '';
-  const fd = new FormData();
-  fd.append('secret', env.TURNSTILE_SECRET);
-  fd.append('response', token);
-  if (ip) fd.append('remoteip', ip);
-  try {
-    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      body: fd
-    });
-    const j = await r.json();
-    return !!j.success;
-  } catch {
-    return false;
-  }
-}
-
 async function handleRegister(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204 });
@@ -92,7 +73,7 @@ async function handleRegister(request, env) {
     return json({ ok: false, message: 'Method Not Allowed' }, 405);
   }
 
-  // 轻量防刷：内核内存 map 按 IP，按天计数 + 重试计数；只防坏人，不求精确
+  // 轻量防刷：isolate 内存 map 按 IP，按天计数 + 重试计数；只防坏人，不求精确
   const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
   const rate = globalThis.__acRate || (globalThis.__acRate = new Map());
   const _now = Date.now();
@@ -122,12 +103,6 @@ async function handleRegister(request, env) {
     return json({ ok: false, message: '密码至少 6 位且不能含空格' }, 400);
   }
 
-  // 可选图形验证
-  if (env.TURNSTILE_SECRET && body['cf-turnstile-response']) {
-    const ok = await verifyTurnstile(body['cf-turnstile-response'], env, request);
-    if (!ok) return json({ ok: false, message: '人机验证失败' }, 400);
-  }
-
   const res = await soapAccountCreate(username, password, env);
   if (res === 'exists') return json({ ok: false, message: '账号已存在' }, 409);
   if (res === 'ok') { e.reg++; return json({ ok: true, message: '注册成功，可直接登录游戏' }); }
@@ -137,11 +112,9 @@ async function handleRegister(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-
     if (url.pathname === '/api/register') {
       return handleRegister(request, env);
     }
-
     // 其余请求交给 Workers Static Assets（注册页 + 补丁）
     return env.ASSETS.fetch(request);
   }
