@@ -1,0 +1,18 @@
+# AzerothCore-OK —— Cloudflare Worker 配置
+# 部署：cd deploy && npx wrangler deploy
+# 机密：wrangler secret put SOAP_PASSWORD   （另可选：wrangler secret put TURNSTILE_SECRET）
+
+name = "azerothcore-ok"
+main = "worker.js"
+compatibility_date = "2025-04-01"
+
+# 静态资源（注册页 index.html + 玩家补丁 patches/）由 Workers Static Assets 托管
+# 请求先过 worker.js；非 /api/* 的请求回退到这里托管的静态文件
+assets = { directory = "./", not_found_handling = "404-page" }
+
+# 后端 worldserver SOAP 配置（明文变量放这里；密码用 secret）
+[vars]
+WORLD_HOST = ""        # 部署机（worldserver）的公网域名或 IP
+WORLD_PORT = "7878"   # SOAP 端口，固定
+SOAP_LOGIN = "webreg" # SOAP 账号，与 worldserver 一致
+# TURNSTILE_SECRET = ""  # 可选：填了才开启 Cloudflare Turnstile 图形验证

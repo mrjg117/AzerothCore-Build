@@ -1,6 +1,6 @@
 # client-patches — 客户端补丁（按模组分子目录）
 
-本目录是客户端补丁的**源**（最终由 Cloudflare Pages 构建时打包为 `patches-client.zip` 分卷分发）。结构按模组分子目录，
+本目录是客户端补丁的**源**（最终由 Cloudflare Worker 构建时打包为 `patches-client.zip` 分卷分发）。结构按模组分子目录，
 便于溯源与单独下载。
 
 > 目录名 `client-patches/` 是为与未来可能的「服务器补丁」区分；若有服务端热补可另建 `server-patches/`，互不干扰。
@@ -28,11 +28,11 @@ client-patches/
   拉取到此目录再打包（上游没了模组本身也编译不了，本地备份无意义）。
   本目录只保留自定义中文补丁 MPQ（`item-affixes/mpq`）。
 
-## 打包（整包不在仓库，Cloudflare Pages 构建时现打）
+## 打包（整包不在仓库，Cloudflare Worker 构建时现打）
 
-`patches-client.zip` **不提交进仓库**。Cloudflare Pages 构建（`build.sh`）时，
+`patches-client.zip` **不提交进仓库**。Cloudflare Worker 构建（`build.sh`）时，
 先按 `addons.txt` 直拉上游 AddOn、再调用 `client-patches/make-archive.py` 把本目录按 WoW 目录层级
-现场打成 zip（整包 > 24 MiB 时自动分卷），由 Pages 分卷分发，玩家在 Pages 主页手动逐卷下载或点「下载全部」合并。
+现场打成 zip（整包 > 24 MiB 时自动分卷），由 Worker 分卷分发，玩家在 Worker 主页手动逐卷下载或点「下载全部」合并。
 
 扫描规则（与布局解耦）：任意 `*.mpq` → 路径含 locale(`zhCN`) 则落 `Data/zhCN/`；
 含 `.toc` 的目录 → `Interface/AddOns/<名>/`。结果层级：

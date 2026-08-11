@@ -42,7 +42,7 @@
 <body>
   <div class="wrap">
     <h1>AzerothCore WotLK 私服</h1>
-    <p class="sub">基于官方 <code>azerothcore-wotlk</code> 原生编排构建 · 镜像由 GitHub Actions 编译 · 本页由 Cloudflare Pages 托管分发</p>
+    <p class="sub">基于官方 <code>azerothcore-wotlk</code> 原生编排构建 · 镜像由 GitHub Actions 编译 · 本页由 Cloudflare Worker（Static Assets）托管分发</p>
 
     <!-- 1. 项目简介 + 使用说明 -->
     <div class="card">
@@ -51,7 +51,7 @@
       <ul style="margin:0;padding-left:20px;">
         <li>编译位置：官方 CI → <b>GitHub Actions</b></li>
         <li>镜像仓库：Docker Hub → <b>腾讯云 TCR + DockerHub 双推</b></li>
-        <li>分发：部署包与玩家补丁 → <b>Cloudflare Pages</b>（国内连 GitHub 不稳，下载走 CF）</li>
+        <li>分发：玩家补丁 + 注册页 → <b>Cloudflare Worker（Static Assets）</b>（国内连 GitHub 不稳，下载走 CF）</li>
         <li>模组：<b>43 个</b>社区模组在编译期静态编入核心（<code>MODULES=static</code>）</li>
       </ul>
       <p class="note" style="margin-top:12px;">镜像内含完整数据库基线、43 模组 SQL、社区地图数据；部署机 <code>docker compose up -d</code> 后自动建库、导库、起服。</p>
@@ -77,8 +77,8 @@
         <div id="regMsg"></div>
       </form>
       <p class="note" style="margin-top:10px;">
-        注册由 <b>Cloudflare 侧</b> 承接：本页表单提交到 CF Function（做图形验证 / 限频 / 白名单）后，再调服务端 <code>worldserver</code> 的 SOAP <code>account create</code> 建号（SRP6 由核心自算，密码不落库明文）。<br>
-        若 CF Function 尚未部署，可用 GM 账号手动建号：<code>docker compose exec ac-worldserver acore account create &lt;账号&gt; &lt;密码&gt; 1</code>。
+        注册由 <b>Cloudflare Worker</b> 承接：本页表单提交到 Worker 的 <code>/api/register</code>（做图形验证 / 限频 / 白名单）后，再调服务端 <code>worldserver</code> 的 SOAP <code>account create</code> 建号（SRP6 由核心自算，密码不落库明文）。<br>
+        若 Worker 尚未部署，可用 GM 账号手动建号：<code>docker compose exec ac-worldserver acore account create &lt;账号&gt; &lt;密码&gt; 1</code>。
       </p>
     </div>
 
@@ -86,26 +86,13 @@
     <div class="card">
       <h2>客户端补丁（AddOns + MPQ）</h2>
       <p>补丁包含两部分：<b>AddOns</b>（界面/功能插件）+ <b>zhCN MPQ</b>（中文客户端补丁）。<br>
-      整包 <b>传输约 3 MB</b>（MPQ 是未压缩数据，zip 后能压到这么小），玩家机器解压后还原为 <b>约 48 MB 的 MPQ</b> 给客户端读取。远低于 Cloudflare Pages 单文件 25 MiB 上限。</p>
+      整包 <b>传输约 3 MB</b>（MPQ 是未压缩数据，zip 后能压到这么小），玩家机器解压后还原为 <b>约 48 MB 的 MPQ</b> 给客户端读取。远低于 Cloudflare 单文件 25 MiB 上限（即便分卷也只是为了方便批量下载）。</p>
       <p class="note" style="margin-top:10px;">下载后把解压出的 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端【根目录】即可。地图数据由服务端自带，不在补丁内。</p>
       <p class="note">Windows 用户不想用命令，可手动逐卷下载（合并顺序见清单）：</p>
       <div class="files" id="patch-parts"></div>
       <p class="note">或点下面一键下载全部分卷并合并为单个 zip：</p>
       <a class="btn" id="dlAll" href="#" style="border:none;">下载全部（合并为单个 zip）</a>
       <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a></p>
-    </div>
-
-    <!-- 4. 一键部署（服务器端） -->
-    <div class="card">
-      <h2>一键部署（服务器端）</h2>
-      <p>在部署机（有公网 IP、装好 Docker）终端粘贴运行下面一行，脚本会自动从本 Pages 站拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（部署 / 更新配置 / 重下地图 / 启停 / 日志）。</p>
-      <div class="file">
-        <div class="meta">
-          <div class="name">curl -fsSL https://ac-deploy.pages.dev/acok.sh -o acok.sh &amp;&amp; bash acok.sh https://ac-deploy.pages.dev</div>
-        </div>
-        <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://ac-deploy.pages.dev/acok.sh -o acok.sh && bash acok.sh https://ac-deploy.pages.dev');return false;">复制</a>
-      </div>
-      <p class="note" style="margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可（脚本第二个参数就是来源 BASE_URL）。</p>
     </div>
 
     <!-- 5. 使用说明（简明步骤） -->
@@ -117,17 +104,17 @@
         <li>下载客户端补丁并解压到 WoW 3.3.5a 根目录。</li>
         <li>客户端 <code>realmlist.wtf</code> 填上服务器地址（即部署时设的 <code>REALM_ADDRESS</code>），启动游戏登录。</li>
       </ol>
-      <p><b>部署者（首次）：</b></p>
+      <p><b>部署本页（Cloudflare Worker，一行命令）：</b></p>
       <ol>
-        <li>复制上面的"一键部署"命令运行，按菜单 <code>1</code> 部署。</li>
-        <li>编辑 <code>.env</code>：<code>DOCKER_DB_ROOT_PASSWORD</code>（数据库密码）、<code>SOAP_PASSWORD</code>、<code>REALM_ADDRESS</code>（对外地址）、<code>TCR_NS</code>。</li>
-        <li><b>务必先</b> <code>docker compose pull</code>（漏这步会在服务器本地触发编译）。</li>
-        <li>控制台菜单 <code>[2] 更新配置</code> 注入自定义配置 → <code>docker compose up -d</code> 起服。</li>
+        <li>装好 Node.js，进 <code>deploy/</code> 目录。</li>
+        <li>设置机密：<code>wrangler secret put SOAP_PASSWORD</code>（与 worldserver 的 SOAP 密码一致）。</li>
+        <li>在 <code>wrangler.toml</code> 填 <code>WORLD_HOST</code>（worldserver 公网域名/IP）、<code>WORLD_PORT=7878</code>、<code>SOAP_LOGIN=webreg</code>。</li>
+        <li>一行部署：<code>npx wrangler deploy</code>。玩家访问分配的 <code>*.workers.dev</code> 或你绑的自定义域名。</li>
       </ol>
       <p class="warn" style="margin-top:10px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。</p>
     </div>
 
-    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config）· 分发：Cloudflare Pages · 详细文档见仓库 README.md</footer>
+    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config）· 分发：Cloudflare Worker（Static Assets）· 详细文档见仓库 README.md</footer>
   </div>
 
   <script>
@@ -171,7 +158,7 @@
     var dlAll = document.getElementById('dlAll');
     if (dlAll) dlAll.addEventListener('click', function (e) { e.preventDefault(); downloadAll(); });
 
-    // 注册表单：提交到 Cloudflare Function（/api/register）
+    // 注册表单：提交到 Cloudflare Worker 的 /api/register
     var REG_API = location.origin + '/api/register';
     document.getElementById('regBtn').addEventListener('click', function (e) {
       e.preventDefault();
@@ -195,7 +182,7 @@
         else { msg.className = 'err'; msg.textContent = (res.j && res.j.message) || '注册失败'; }
       }).catch(function () {
         msg.className = 'err';
-        msg.textContent = '无法连接注册服务（CF Function 可能尚未部署）。请用 GM 账号手动建号。';
+        msg.textContent = '无法连接注册服务（Worker 可能尚未部署）。请用 GM 账号手动建号。';
       });
     });
   </script>
