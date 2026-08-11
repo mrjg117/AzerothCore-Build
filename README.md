@@ -22,15 +22,15 @@ CI 工作流（均在 Actions 跑）：
 - `build-core.yml`：克隆官方 + 43 模组，构建 4 个 server target，推双仓库。
 - `build-maps.yml`：下载社区地图源烤入 `ac-maps`，推双仓库。
 - `build-config.yml`：构建 `ac-extra-config`，推双仓库。
-- `sync-addons.yml`：每周一把 3 个模组上游 `client_addon/` 刷回 `client-patches/` 作离线兜底并提交。
 
 ## 目录结构
 
 ```
 AzerothCore-Build/
-├── .github/workflows/        CI：build-core / build-maps / build-config / sync-addons
+├── .github/workflows/        CI：build-core / build-maps / build-config
 ├── client-patches/            玩家客户端补丁源（按模组分子目录）；Pages 构建时打成
-│                              patches-client.zip 再分卷。MPQ 仅 zhCN 单份，AddOn 为离线兜底
+│                              patches-client.zip 再分卷。MPQ 仅 zhCN 单份（仓库内保留），
+│                              AddOn 由构建期从上游直拉，不落库
 │   └── make-archive.py        把 client-patches/ 按 WoW 目录层级（Data/zhCN + Interface/AddOns）
 │                              打成 patches-client.zip（被 build-pages.sh 调用）
 ├── config/
@@ -43,10 +43,8 @@ AzerothCore-Build/
 │   ├── index.html             Pages 主页：注册 + 补丁下载 + 一键部署 + 简介/说明
 │   ├── docker-compose.override.yml   官方钦定唯一扩展点：仅换镜像地址
 │   ├── .env.example           部署变量样例
-│   ├── inject-config.sh       部署机：pull ac-extra-config 镜像并导出自定义 .conf 到 env/dist/etc
 │   ├── build-pages.sh         Pages 构建命令（现拉官方文件 + 现打补丁分卷 + 现打 ac-deploy.zip）
-│   ├── download-patches.sh    玩家侧：批量下载分卷补丁并合并校验
-│   ├── deploy-console.sh      部署机交互控制台（拉文件 / 生成 .env / 菜单）
+│   ├── deploy-console.sh      部署机交互控制台（拉文件 / 生成 .env / 菜单，配置注入已内联）
 │   └── （以下为构建产物，不进库）docker-compose.yml / conf/dist/env.ac / ac-deploy.zip / VERSION / patches/*
 ```
 
@@ -73,7 +71,7 @@ cp .env.example .env && vi .env
 docker compose pull
 
 # 4. 注入自定义配置（ac-extra-config 把 confs 烤进 env/dist/etc，官方 cp -n 合并）
-bash inject-config.sh
+#    部署控制台菜单 [2] 更新配置 即执行注入
 
 # 5. 官方原生启动（零修改，仅读 override 换镜像）
 docker compose up -d
@@ -92,15 +90,14 @@ docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 
 - **传输包约 3 MB**（MPQ 是未压缩/高冗余数据，zip 能压到这么小；远在 CF Pages 单文件 25 MiB 上限内）。
 - 玩家机器解压后还原为 **约 48 MB 的 MPQ** 给客户端读取。
-- 按需求**强制分卷**（方便"点一下下一堆"批量下载），每卷 ≤ 24 MiB。`download-patches.sh` 读 `patches-manifest.txt` 按序批量下载 → `cat` 合并 → sha256 校验 → 解压到客户端根目录。
-- Windows 玩家也可在 Pages 主页手动逐卷点下载。
+- 按需求**强制分卷**（方便"点一下下一堆"批量下载），每卷 ≤ 24 MiB。玩家在 Pages 主页**手动逐卷点下载**，按 `patches-manifest.txt` 顺序合并解压到客户端根目录。
 
 ## 维护
 
 - **镜像双推 TCR + DockerHub**：override 默认走 TCR；想换 DockerHub 改 override 的 image 前缀即可。
 - **加/换模组**：改 `config/modules.txt` → 重新跑 `build-core.yml` → 重新从 CF Pages 取部署包部署（镜像 tag 变了则更新 .env 的 IMAGE_TAG）。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
-- **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 重新 `bash deploy/inject-config.sh`。
+- **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 部署控制台菜单 `[2] 更新配置` 注入。
 - **改客户端补丁**：改 `client-patches/*` → 重新跑 Pages 构建（`build-pages.sh` 现打补丁包）。
 - **同步官方文件**：AC 更新后 `build-pages.sh` 步骤①会自动从上游现拉 `docker-compose.yml` 与 `env.ac`。
 

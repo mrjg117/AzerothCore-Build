@@ -6,7 +6,7 @@
 
 ## 占位符替换
 `core/worldserver.conf` 中的 `__SOAP_PASSWORD__` 会在注入时由环境变量 `SOAP_PASSWORD` 替换
-（注册账号的 SOAP 凭据由 `deploy/.env.example` 的 `SOAP_LOGIN` / `SOAP_PASSWORD` 提供，外部注册服务据此调 worldserver；见 `deploy/inject-config.sh`）。
+（注册账号的 SOAP 凭据由 `deploy/.env.example` 的 `SOAP_LOGIN` / `SOAP_PASSWORD` 提供，外部注册服务据此调 worldserver；配置注入由 `deploy/deploy-console.sh` 在部署机执行）。
 这样 SOAP 密码不写死进镜像，部署时由 .env 提供。
 
 ## 目录结构（按模组分子目录）

@@ -87,14 +87,7 @@
       <h2>客户端补丁（AddOns + MPQ）</h2>
       <p>补丁包含两部分：<b>AddOns</b>（界面/功能插件）+ <b>zhCN MPQ</b>（中文客户端补丁）。<br>
       整包 <b>传输约 3 MB</b>（MPQ 是未压缩数据，zip 后能压到这么小），玩家机器解压后还原为 <b>约 48 MB 的 MPQ</b> 给客户端读取。远低于 Cloudflare Pages 单文件 25 MiB 上限。</p>
-      <p><b>一键批量下载并合并</b>（"点一下下一堆"，需 bash 环境：部署机 / Git Bash / WSL）：</p>
-      <div class="file">
-        <div class="meta">
-          <div class="name">bash &lt;(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev</div>
-        </div>
-        <a class="btn" href="#" onclick="copyCmd(this,'bash <(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev');return false;">复制</a>
-      </div>
-      <p class="note" style="margin-top:10px;">运行后把解压出的 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端【根目录】即可。地图数据由服务端自带，不在补丁内。</p>
+      <p class="note" style="margin-top:10px;">下载后把解压出的 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端【根目录】即可。地图数据由服务端自带，不在补丁内。</p>
       <p class="note">Windows 用户不想用命令，可手动逐卷下载（合并顺序见清单）：</p>
       <div class="files" id="patch-parts"></div>
       <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a></p>
@@ -103,7 +96,7 @@
     <!-- 4. 一键部署（服务器端） -->
     <div class="card">
       <h2>一键部署（服务器端）</h2>
-      <p>在部署机（有公网 IP、装好 Docker）终端粘贴运行下面一行，脚本会自动从本 Pages 站拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（部署 / 更新配置 / 重下地图 / 启停 / 日志 / 下载补丁）。</p>
+      <p>在部署机（有公网 IP、装好 Docker）终端粘贴运行下面一行，脚本会自动从本 Pages 站拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（部署 / 更新配置 / 重下地图 / 启停 / 日志）。</p>
       <div class="file">
         <div class="meta">
           <div class="name">curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh &amp;&amp; bash deploy-console.sh https://ac-deploy.pages.dev</div>
@@ -127,12 +120,12 @@
         <li>复制上面的"一键部署"命令运行，按菜单 <code>1</code> 部署。</li>
         <li>编辑 <code>.env</code>：<code>DOCKER_DB_ROOT_PASSWORD</code>（数据库密码）、<code>SOAP_PASSWORD</code>、<code>REALM_ADDRESS</code>（对外地址）、<code>TCR_NS</code>。</li>
         <li><b>务必先</b> <code>docker compose pull</code>（漏这步会在服务器本地触发编译）。</li>
-        <li><code>bash inject-config.sh</code> 注入自定义配置 → <code>docker compose up -d</code> 起服。</li>
+        <li>控制台菜单 <code>[2] 更新配置</code> 注入自定义配置 → <code>docker compose up -d</code> 起服。</li>
       </ol>
       <p class="warn" style="margin-top:10px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。</p>
     </div>
 
-    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config / sync-addons）· 分发：Cloudflare Pages · 详细文档见仓库 README.md</footer>
+    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config）· 分发：Cloudflare Pages · 详细文档见仓库 README.md</footer>
   </div>
 
   <script>

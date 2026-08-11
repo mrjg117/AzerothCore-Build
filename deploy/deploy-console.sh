@@ -9,14 +9,14 @@
 #     不进 git、不手动打包；官方编排文件也由 Pages 在构建时从上游现拉。
 #   * 首次运行自动生成 .env（从 .env.example 拷），并交互填写关键项。
 #   * 之后就是一个交互式菜单控制台，支持一键部署 / 更新配置 / 重下地图 /
-#     启停 / 状态日志 / 下载补丁 等。
+#     启停 / 状态日志 / 编辑配置 等。
 # ============================================================
 [ -z "${1:-}" ] && { echo "用法: bash deploy-console.sh <Pages_BASE_URL>"; exit 1; }
 BASE_URL="$1"
 WORK_DIR="$PWD"
 
 # 部署机需要的运行时文件（从 Pages 现拉，官方文件由 Pages 构建时已从上游拉好）
-FILES=(docker-compose.yml docker-compose.override.yml .env.example inject-config.sh)
+FILES=(docker-compose.yml docker-compose.override.yml .env.example)
 
 echo "==> 工作目录: $WORK_DIR"
 echo "==> 来源: $BASE_URL"
@@ -33,7 +33,7 @@ done
 # .env 不存在则从模板生成
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "==> 已生成 .env（可菜单 [7] 填写，或直接编辑该文件）"
+  echo "==> 已生成 .env（可菜单 [6] 填写，或直接编辑该文件）"
 fi
 
 # ---------- 交互填写 .env 关键项 ----------
@@ -64,6 +64,21 @@ dc() { docker compose "$@"; }
 
 pause() { read -rp "按回车返回菜单..." _; }
 
+# 注入自定义配置：pull ac-extra-config 镜像，把 confs/ 导出到 ./env/dist/etc
+# （原 inject-config.sh 的逻辑，内联于此，避免多一个独立脚本）
+inject_config() {
+  echo "==> 注入自定义配置（重拉配置镜像 + 导出 .conf 到 ./env/dist/etc）"
+  set -a; [ -f .env ] && source .env; set +a
+  IMG="tcr.ccs.tencentyun.com/${TCR_NS}/ac-extra-config:${IMAGE_TAG:-latest}"
+  docker pull "$IMG"
+  mkdir -p "$PWD/env/dist/etc"
+  docker run --rm \
+    -e "SOAP_PASSWORD=${SOAP_PASSWORD:-changeMeNow123!}" \
+    -v "$PWD/env/dist/etc:/out" \
+    "$IMG"
+  echo "配置已注入 $PWD/env/dist/etc"
+}
+
 while true; do
   clear
   echo "=================================================="
@@ -76,7 +91,6 @@ while true; do
   echo "  4) 启 / 停 / 重启  服务控制"
   echo "  5) 状态 / 日志     查看运行态与日志"
   echo "  6) 编辑 .env       交互填写关键项"
-  echo "  7) 下载玩家补丁    批量下分卷并合并到本地 patches-client/"
   echo "  0) 退出"
   echo "--------------------------------------------------"
   read -rp "选择: " c
@@ -93,7 +107,7 @@ while true; do
     2)
       echo "==> [2] 更新配置（重拉配置镜像 + 注入 + 重启 worldserver）"
       dc pull ac-extra-config
-      bash inject-config.sh
+      inject_config
       dc restart ac-worldserver
       pause
       ;;
@@ -128,13 +142,6 @@ while true; do
       pause
       ;;
     6) configure ;;
-    7)
-      echo "==> [7] 下载玩家补丁（分卷）"
-      curl -fsSL -o download-patches.sh "$BASE_URL/download-patches.sh" \
-        || { echo "下载 download-patches.sh 失败"; pause; continue; }
-      bash download-patches.sh "$BASE_URL" patches-client
-      pause
-      ;;
     0) echo "退出。文件都在 $WORK_DIR，可随时再来：bash deploy-console.sh $BASE_URL"; exit 0 ;;
     *) echo "无效选择" ;;
   esac

@@ -102,7 +102,7 @@ def build_readme():
         "  - mod-guild-levels           （公会等级；仅 AddOn）\n"
         "  - mod-bot-inventory-master   （机器人背包；仅 AddOn）\n"
         "\n"
-        "若只需单独某个插件，可到注册成功页单独下载对应 AddOn。\n"
+        "AddOn 由构建期从上游模组仓库拉取，未单独提供下载。\n"
     )
 
 
