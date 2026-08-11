@@ -20,14 +20,11 @@
             padding:12px 14px; background:#14161f; border:1px solid var(--line); border-radius:9px; margin-bottom:8px; }
     .file .meta { min-width:0; }
     .file .name { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; color:#cdd6f4; word-break:break-all; }
-    .file .desc { font-size:12px; color:var(--muted); margin-top:2px; }
     a.btn { flex:none; text-decoration:none; background:var(--accent); color:#fff; font-size:13px;
             padding:7px 14px; border-radius:7px; white-space:nowrap; cursor:pointer; border:none; }
     a.btn:hover { filter:brightness(1.1); }
     a.btn.big { display:inline-block; padding:11px 22px; font-size:15px; margin-bottom:12px; }
-    ol { margin:0; padding-left:20px; } ol li { margin:7px 0; }
     code { background:#14161f; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13px; color:#cdd6f4; }
-    .note { font-size:12px; color:var(--muted); margin:10px 0 0; }
     .formrow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
     .formrow label { width:72px; flex:none; font-size:13px; color:var(--muted); }
     .formrow input { flex:1; min-width:160px; padding:8px 10px; background:#14161f; border:1px solid var(--line);
@@ -37,7 +34,6 @@
     #regMsg { font-size:13px; margin-top:6px; min-height:18px; }
     #regMsg.ok { color:var(--ok); } #regMsg.err { color:#ff8a8a; }
     .hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
-    footer { color:var(--muted); font-size:12px; text-align:center; margin-top:28px; }
     a.link { color:var(--accent); }
   </style>
 </head>
@@ -80,13 +76,11 @@
         <a class="btn" id="regBtn" style="border:none; margin-top:4px;">注册</a>
         <div id="regMsg"></div>
       </form>
-      <p class="note">注册由 Cloudflare Worker 调 worldserver SOAP 建号（密码不落库明文）。若 Worker 未部署，可用 GM 账号手动建号。</p>
     </div>
 
     <!-- 补丁下载 -->
     <div class="card">
-      <h2>客户端补丁下载</h2>
-      <p>补丁含 <b>AddOns</b> + <b>zhCN MPQ</b>（中文客户端补丁）。解压到 WoW 3.3.5a 客户端【根目录】即可；地图数据由服务端自带。</p>
+      <h2>补丁下载</h2>
       <a class="btn big" id="dlAll" href="#">自动批量下载</a>
       <div class="files" id="patchParts"></div>
     </div>
@@ -96,15 +90,15 @@
       <h2>一键部署自己的服务器</h2>
       <div class="file">
         <div class="meta">
-          <div class="name">curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash</div>
+          <div class="name" id="deployCmd">curl -fsSL .../deploy.sh | bash</div>
         </div>
-        <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash');return false;">复制</a>
+        <a class="btn" href="#" id="deployCopy">复制</a>
       </div>
     </div>
   </div>
 
   <script>
-    function copyCmd(el, txt) {
+    function copyText(txt, el) {
       navigator.clipboard.writeText(txt);
       var old = el.textContent; el.textContent = '已复制';
       setTimeout(function(){ el.textContent = old; }, 1500);
@@ -130,6 +124,13 @@
       document.getElementById('capInput').value = '';
     });
 
+    // 一键部署脚本地址（用本页所在的 CF Worker 域名）
+    var deployCmd = 'curl -fsSL ' + location.origin + '/deploy.sh | bash';
+    document.getElementById('deployCmd').textContent = deployCmd;
+    document.getElementById('deployCopy').addEventListener('click', function (e) {
+      e.preventDefault(); copyText(deployCmd, this);
+    });
+
     // ===== 补丁分卷列表 + 下载全部合并 =====
     var patchParts = [];
     fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
@@ -137,7 +138,7 @@
         .map(function (l) { return l.slice(5).split(' ')[0]; });
       var box = document.getElementById('patchParts');
       if (!box) return;
-      if (!patchParts.length) { box.innerHTML = '<div class="note">暂无可下载的补丁分卷</div>'; return; }
+      if (!patchParts.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;">暂无可下载的补丁分卷</div>'; return; }
       box.innerHTML = patchParts.map(function (p, i) {
         return '<div class="file"><div class="meta"><div class="name">分卷' + (i + 1) + '：' + p +
           '</div><div class="desc">单独下载这一卷</div></div>' +
@@ -168,9 +169,7 @@
       e.preventDefault();
       var msg = document.getElementById('regMsg');
       msg.className = ''; msg.textContent = '';
-      // 蜜罐：隐藏输入框被填 = 机器人
       if (document.getElementById('hp').value) { msg.className = 'err'; msg.textContent = '验证失败'; return; }
-      // 验证码
       var c = parseInt(document.getElementById('capInput').value, 10);
       if (isNaN(c) || c !== capAns) {
         msg.className = 'err'; msg.textContent = '验证码错误，已换一题';

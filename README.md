@@ -41,17 +41,17 @@ AzerothCore-OK/
 │   │   └── confs/             各模组自定义 .conf（core / mod-playerbots / mod-item-affixes）
 │   └── maps/                  ac-maps 镜像源（社区地图烤入）
 ├── deploy/                    Cloudflare Worker 源（本仓库的部署单元）
-│   ├── index.html             Worker 主页：注册 + 补丁下载 + 一键部署链接（即注册页）
+│   ├── index.html             Worker 主页（即注册页）：账号注册 + 补丁下载 + 一键部署链接
 │   ├── worker.js              Worker 脚本：处理 /api/register（SOAP 调 worldserver 建号）+ 回退静态资源
-│   ├── wrangler.toml          Worker 配置（Static Assets 目录 + WORLD_HOST/PORT/SOAP 变量）
+│   ├── wrangler.toml          Worker 配置（Static Assets 目录 + WORLD_HOST/启用/SOAP 变量）
+│   ├── deploy.sh              游戏服务端一行部署脚本（由 CF Worker 托管，页面"一键部署脚本"指向它）
 │   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
-├── server/                    游戏服务端一键部署（给服务器运营方）
-│   ├── deploy.sh              一行部署脚本：装 Docker、拉官方 compose + 本仓 override/.env/modules.txt、起服
+├── server/                    游戏服务端部署文件（被 deploy.sh 拉取）
 │   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 43 模组的 TCR 构建产物
 │   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / TCR_NS / SOAP_*）
 ```
 
-> 本仓库**不再提供"服务器端一键部署整包 zip"**（已放弃 `ac-deploy.zip` 与服务端控制台）——但提供 `server/deploy.sh` 一行部署脚本，运营方直接 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
+> 本仓库**不再提供"服务器端一键部署整包 zip"**（已放弃 `ac-deploy.zip` 与服务端控制台）——但提供 `deploy/deploy.sh` 一行部署脚本（由 CF Worker 托管），运营方直接 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
 
 ## 注册方案
 
@@ -96,11 +96,11 @@ npx wrangler deploy
 #    玩家访问分配的 *.workers.dev 或你在 Cloudflare 控制台绑的自定义域名
 ```
 
-### 二、游戏服务端（官方原生编排，server/deploy.sh 一行部署）
+### 二、游戏服务端（官方原生编排，deploy/deploy.sh 一行部署）
 服务端镜像仍由本仓库 CI 构建并推到 TCR/DockerHub；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
 ```bash
 # 在你的服务器（有公网 IP、装好 Docker）终端运行：
-curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash
+curl -fsSL https://<你的Worker域名>/deploy.sh | bash
 # 脚本会：装 Docker → 拉官方 compose + 本仓 override/.env/modules.txt → docker compose pull && up -d
 # 可选用环境变量预填：REALM_ADDRESS / TCR_NS / SOAP_PASSWORD（否则手动编辑 .env）
 ```

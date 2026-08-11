@@ -3,7 +3,7 @@
 # AzerothCore-OK —— 一键部署游戏服务端（含 43 个模组）
 # ------------------------------------------------------------
 # 一行运行（在你的服务器终端，需有公网 IP、装好 Docker）：
-#   curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash
+#   curl -fsSL https://<你的Worker域名>/deploy.sh | bash
 #
 # 它做了什么：
 #   1) 没装 Docker 就尝试装（Ubuntu/Debian/CentOS）
