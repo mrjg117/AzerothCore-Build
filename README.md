@@ -55,7 +55,7 @@ AzerothCore-OK/
 
 ## 注册方案
 
-账号注册由 **Cloudflare Worker** 承接：页面表单（`deploy/index.html` 的注册区块）提交到 Worker 的 **`/api/register`**，Worker 做基础校验 + 可选图形验证 / 限频 / 白名单后，调 `worldserver` 的 SOAP `account create` 建号（SRP6 由核心自算，密码不落库明文）。
+注册由 Cloudflare Worker 调 worldserver SOAP 建号（密码不落库明文）。若 Worker 未部署，可用 GM 账号手动建号。
 
 ### 托管形态：Worker（采用）
 - **Worker + Static Assets（本项目采用）**：一个 Worker 既托管静态页（`index.html` 等）又处理 `/api/register`，`wrangler deploy` 一条命令部署，CORS 天然同源、配置最少。CF 正在把 Pages 能力收敛到 Workers，静态资源免费额度与函数调用消耗两者基本一致，直接上 Worker 最省事、也最面向未来。
@@ -119,12 +119,9 @@ docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 
 ## 玩家补丁
 
-补丁包含 **AddOns（界面/功能插件）+ zhCN MPQ（中文客户端补丁）**。
+补丁含 AddOns + zhCN MPQ（中文客户端补丁）。解压到 WoW 3.3.5a 客户端【根目录】即可；地图数据由服务端自带。
 
-- **传输包约 3 MB**（MPQ 是未压缩/高冗余数据，zip 能压到这么小；远低于 Cloudflare 单文件 25 MiB 上限）。
-- 玩家机器解压后还原为 **约 48 MB 的 MPQ** 给客户端读取。
-- 按需求**强制分卷**（方便"点一下下一堆"批量下载），每卷 ≤ 24 MiB。玩家在页面**手动逐卷点下载**，按 `patches-manifest.txt` 顺序合并解压到客户端根目录；也可点「下载全部」由 JS 把分卷合并成单个 zip。
-- 压缩包内含 **`启动器.bat`**：运营方在打包时通过 `REALM_ADDRESS`（或 `WORLD_HOST`）写入服务器地址，玩家双击即自动清客户端缓存、写好 `realmlist.wtf`、启动 `Wow.exe`，无需手动改地址。默认占位 `play.example.com`，`build.sh` 前设 `REALM_ADDRESS=你的域名或IP` 即可注入。
+压缩包内含 `启动器.bat`：打包时通过 `REALM_ADDRESS` 写入服务器地址，玩家双击即自动清缓存、写好 `realmlist.wtf`、启动 `Wow.exe`。打包前设 `REALM_ADDRESS=你的域名或IP` 即可（默认占位 `play.example.com`）。
 
 ## 维护
 

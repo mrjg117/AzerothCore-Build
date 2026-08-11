@@ -88,25 +88,19 @@
       <h2>客户端补丁下载</h2>
       <p>补丁含 <b>AddOns</b> + <b>zhCN MPQ</b>（中文客户端补丁）。解压到 WoW 3.3.5a 客户端【根目录】即可；地图数据由服务端自带。</p>
       <a class="btn big" id="dlAll" href="#">自动批量下载</a>
-      <p class="note">点上面一键下载全部分卷并自动合并为单个 zip；下面也可按分卷单独下载：</p>
       <div class="files" id="patchParts"></div>
-      <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a> ｜ 解压后双击压缩包里的 <b>启动器.bat</b> 会自动清缓存并写好转服地址。</p>
     </div>
 
     <!-- 一键部署自己的服务器 -->
     <div class="card">
       <h2>一键部署自己的服务器</h2>
-      <p>在你的服务器（需装好 Docker、有公网 IP）终端粘贴运行下面一行，脚本会自动拉取配置并起服（含 43 个模组）：</p>
       <div class="file">
         <div class="meta">
           <div class="name">curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash</div>
-          <div class="desc">部署前请准备好：数据库密码、对外域名/IP、SOAP 密码</div>
         </div>
         <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash');return false;">复制</a>
       </div>
     </div>
-
-    <footer>镜像构建：GitHub Actions · 分发：Cloudflare Worker（Static Assets）· 详细文档见仓库 README.md</footer>
   </div>
 
   <script>
