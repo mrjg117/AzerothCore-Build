@@ -31,7 +31,7 @@ client-patches/
 ## 打包（整包不在仓库，Cloudflare Pages 构建时现打）
 
 `patches-client.zip` **不提交进仓库**。Cloudflare Pages 构建（`build-pages.sh`）时，
-`scripts/make-client-archive.py` 把本目录按 WoW 目录层级现场打成 zip（按需分卷），
+`client-patches/make-archive.py` 把本目录按 WoW 目录层级现场打成 zip（按需分卷），
 由 Pages 分卷分发，玩家用 `download-patches.sh` 批量下载合并。
 
 扫描规则（与布局解耦）：任意 `*.mpq` → 路径含 locale(`zhCN`) 则落 `Data/zhCN/`；

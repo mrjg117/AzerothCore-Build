@@ -3,131 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AzerothCore 部署包</title>
+  <title>AzerothCore WotLK 私服 · 注册 / 补丁 / 部署</title>
   <style>
-    :root { --bg:#0f1117; --card:#1a1d27; --fg:#e6e8ee; --muted:#9aa3b2; --accent:#5b8cff; --line:#2a2f3d; }
+    :root { --bg:#0f1117; --card:#1a1d27; --fg:#e6e8ee; --muted:#9aa3b2; --accent:#5b8cff; --ok:#46c98b; --line:#2a2f3d; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
            background:var(--bg); color:var(--fg); line-height:1.6; }
-    .wrap { max-width:860px; margin:0 auto; padding:48px 20px 80px; }
-    h1 { font-size:28px; margin:0 0 6px; }
-    .sub { color:var(--muted); margin:0 0 32px; }
+    .wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
+    h1 { font-size:27px; margin:0 0 6px; }
+    .sub { color:var(--muted); margin:0 0 30px; }
     .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
     .card h2 { font-size:17px; margin:0 0 14px; color:var(--accent); }
-    .files { display:grid; grid-template-columns:1fr; gap:10px; }
+    .card p { margin:0 0 12px; }
     .file { display:flex; align-items:center; justify-content:space-between; gap:12px;
-            padding:12px 14px; background:#14161f; border:1px solid var(--line); border-radius:9px; }
+            padding:12px 14px; background:#14161f; border:1px solid var(--line); border-radius:9px; margin-bottom:8px; }
     .file .meta { min-width:0; }
-    .file .name { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; color:#cdd6f4; word-break:break-all; }
+    .file .name { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; color:#cdd6f4; word-break:break-all; }
     .file .desc { font-size:12px; color:var(--muted); margin-top:2px; }
     a.btn { flex:none; text-decoration:none; background:var(--accent); color:#fff; font-size:13px;
-            padding:7px 14px; border-radius:7px; white-space:nowrap; }
+            padding:7px 14px; border-radius:7px; white-space:nowrap; cursor:pointer; }
     a.btn:hover { filter:brightness(1.1); }
-    ol { margin:0; padding-left:20px; }
-    ol li { margin:8px 0; }
+    ol { margin:0; padding-left:20px; } ol li { margin:7px 0; }
     code { background:#14161f; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13px; color:#cdd6f4; }
     .warn { border-color:#5a3a1a; background:#2a1f14; color:#ffd9a8; }
     .warn b { color:#ffb866; }
-    footer { color:var(--muted); font-size:12px; text-align:center; margin-top:32px; }
+    .note { font-size:12px; color:var(--muted); }
+    .formrow { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .formrow label { width:84px; flex:none; font-size:13px; color:var(--muted); padding-top:8px; }
+    .formrow input { flex:1; min-width:180px; padding:8px 10px; background:#14161f; border:1px solid var(--line);
+                     border-radius:7px; color:var(--fg); font-size:14px; }
+    .formrow input:focus { outline:none; border-color:var(--accent); }
+    #regMsg { font-size:13px; margin-top:4px; min-height:18px; }
+    #regMsg.ok { color:var(--ok); } #regMsg.err { color:#ff8a8a; }
+    footer { color:var(--muted); font-size:12px; text-align:center; margin-top:30px; }
     a.link { color:var(--accent); }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>AzerothCore 部署包</h1>
-    <p class="sub">本页由 Cloudflare Pages 托管 · 部署所需文件均可直接下载 · 镜像由 GitHub Actions 构建并推送到 TCR / DockerHub</p>
+    <h1>AzerothCore WotLK 私服</h1>
+    <p class="sub">基于官方 <code>azerothcore-wotlk</code> 原生编排构建 · 镜像由 GitHub Actions 编译 · 本页由 Cloudflare Pages 托管分发</p>
 
-    <div class="card" style="border-color:var(--accent);">
-      <h2>一键安装（部署机控制台）</h2>
-      <p class="desc" style="margin-top:0;">在部署机终端粘贴运行下面这一行，脚本会自动从本 Pages 站点拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（一键部署 / 更新配置 / 重下地图 / 启停 / 状态日志 / 编辑.env / 下载补丁）。</p>
-      <div class="file">
-        <div class="meta">
-          <div class="name">curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh &amp;&amp; bash deploy-console.sh https://ac-deploy.pages.dev</div>
-        </div>
-        <a class="btn" href="#" onclick="navigator.clipboard.writeText('curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh && bash deploy-console.sh https://ac-deploy.pages.dev');this.textContent='已复制';return false;">复制</a>
-      </div>
-      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可（脚本第二个参数就是来源 BASE_URL）。</p>
+    <!-- 1. 项目简介 + 使用说明 -->
+    <div class="card">
+      <h2>项目简介</h2>
+      <p>这是一套 <b>WotLK（巫妖王之怒 3.3.5a）私服</b> 的镜像源与部署包。原则只有一条：<b>官方的东西一个字不改，只换两个端点，其余全部走"追加"</b>——</p>
+      <ul style="margin:0;padding-left:20px;">
+        <li>编译位置：官方 CI → <b>GitHub Actions</b></li>
+        <li>镜像仓库：Docker Hub → <b>腾讯云 TCR + DockerHub 双推</b></li>
+        <li>分发：部署包与玩家补丁 → <b>Cloudflare Pages</b>（国内连 GitHub 不稳，下载走 CF）</li>
+        <li>模组：<b>43 个</b>社区模组在编译期静态编入核心（<code>MODULES=static</code>）</li>
+      </ul>
+      <p class="note" style="margin-top:12px;">镜像内含完整数据库基线、43 模组 SQL、社区地图数据；部署机 <code>docker compose up -d</code> 后自动建库、导库、起服。</p>
     </div>
 
+    <!-- 2. 账号注册（本页即注册页） -->
     <div class="card">
-      <h2>下载部署文件（手动方式）</h2>
-      <div class="files">
-        <div class="file">
-          <div class="meta">
-            <div class="name">ac-deploy.zip</div>
-            <div class="desc">整包一键下载（含下方全部配置，解压即用）</div>
-          </div>
-          <a class="btn" href="./ac-deploy.zip" download>下载</a>
+      <h2>账号注册</h2>
+      <form id="regForm" autocomplete="off">
+        <div class="formrow">
+          <label>账号名</label>
+          <input id="regUser" type="text" maxlength="32" placeholder="登录游戏用的账号（英文/数字）" required />
         </div>
-        <div class="file">
-          <div class="meta">
-            <div class="name">docker-compose.yml</div>
-            <div class="desc">官方编排（原样使用，勿改）</div>
-          </div>
-          <a class="btn" href="./docker-compose.yml" download>下载</a>
+        <div class="formrow">
+          <label>密码</label>
+          <input id="regPass" type="password" maxlength="64" placeholder="至少 6 位" required />
         </div>
-        <div class="file">
-          <div class="meta">
-            <div class="name">docker-compose.override.yml</div>
-            <div class="desc">我们的扩展：仅换镜像地址（注册页 ac-web 源码保留，已不再纳入部署）</div>
-          </div>
-          <a class="btn" href="./docker-compose.override.yml" download>下载</a>
+        <div class="formrow">
+          <label>确认密码</label>
+          <input id="regPass2" type="password" maxlength="64" placeholder="再输一次" required />
         </div>
-        <div class="file">
-          <div class="meta">
-            <div class="name">.env.example</div>
-            <div class="desc">部署变量样例 → 复制为 .env 后填密码/地址</div>
-          </div>
-          <a class="btn" href="./.env.example" download>下载</a>
-        </div>
-        <div class="file">
-          <div class="meta">
-            <div class="name">conf/dist/env.ac</div>
-            <div class="desc">官方环境模板（编译器/路径，DB 密码不在此）</div>
-          </div>
-          <a class="btn" href="./conf/dist/env.ac" download>下载</a>
-        </div>
-        <div class="file">
-          <div class="meta">
-            <div class="name">inject-config.sh</div>
-            <div class="desc">部署机把自定义配置注入卷（拉 ac-extra-config 导出）</div>
-          </div>
-          <a class="btn" href="./inject-config.sh" download>下载</a>
-        </div>
-      </div>
+        <a class="btn" id="regBtn" style="border:none;">注册</a>
+        <div id="regMsg"></div>
+      </form>
+      <p class="note" style="margin-top:10px;">
+        注册由 <b>Cloudflare 侧</b> 承接：本页表单提交到 CF Function（做图形验证 / 限频 / 白名单）后，再调服务端 <code>worldserver</code> 的 SOAP <code>account create</code> 建号（SRP6 由核心自算，密码不落库明文）。<br>
+        若 CF Function 尚未部署，可用 GM 账号手动建号：<code>docker compose exec ac-worldserver acore account create &lt;账号&gt; &lt;密码&gt; 1</code>。
+      </p>
     </div>
 
+    <!-- 3. 玩家客户端补丁（AddOns + MPQ） -->
     <div class="card">
-      <h2>快速部署（手动 5 步，或改用上方控制台）</h2>
-      <ol>
-        <li>把本页文件整包下载到部署机，进入该目录。</li>
-        <li><code>cp .env.example .env</code>，编辑：<code>IMAGE_TAG</code>（或留 <code>latest</code>）、<code>DOCKER_DB_ROOT_PASSWORD</code>、<code>SOAP_PASSWORD</code>、<code>REALM_ADDRESS</code>、<code>TCR_NS</code>。</li>
-        <li><b>务必先</b> <code>docker compose pull</code> —— 从 TCR/DockerHub 拉镜像，漏这步会在服务器本地触发编译。</li>
-        <li><code>bash inject-config.sh</code> —— 把自定义配置导出到 <code>env/dist/etc/</code>。</li>
-        <li><code>docker compose up -d</code> —— 起库 → 导库（含 43 模组 SQL）→ 灌地图 → 起服。</li>
-      </ol>
-      <p class="warn" style="margin-top:14px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。首次部署需手动建一个 gmlevel=1 的 <code>webreg</code> 账号（密码与 <code>.env</code> 的 <code>SOAP_PASSWORD</code> 一致），供外部注册服务（Cloudflare Function）SOAP 调用。</p>
-      <p>完整说明见 <a class="link" href="./README.md">README.md</a>。</p>
-    </div>
-
-    <div class="card">
-      <h2>玩家客户端补丁（给玩家下，不是服务器用）</h2>
-      <p class="desc" style="margin-top:0;">整包约 3.1 MB（MPQ 本身已压缩，zip 后保持很小，远低于 25 MiB 上限；若未来补丁增大超过 24 MiB 会自动分卷）。复制下面一行，在玩家机器（或服务器）终端粘贴运行，即<b>一键批量下载并自动合并解压</b>（"点一下下一堆"）。</p>
+      <h2>客户端补丁（AddOns + MPQ）</h2>
+      <p>补丁包含两部分：<b>AddOns</b>（界面/功能插件）+ <b>zhCN MPQ</b>（中文客户端补丁）。<br>
+      整包 <b>传输约 3 MB</b>（MPQ 是未压缩数据，zip 后能压到这么小），玩家机器解压后还原为 <b>约 48 MB 的 MPQ</b> 给客户端读取。远低于 Cloudflare Pages 单文件 25 MiB 上限。</p>
+      <p><b>一键批量下载并合并</b>（"点一下下一堆"，需 bash 环境：部署机 / Git Bash / WSL）：</p>
       <div class="file">
         <div class="meta">
           <div class="name">bash &lt;(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev</div>
         </div>
-        <a class="btn" href="#" onclick="navigator.clipboard.writeText('bash <(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev');this.textContent='已复制';return false;">复制</a>
+        <a class="btn" href="#" onclick="copyCmd(this,'bash <(curl -fsSL https://ac-deploy.pages.dev/download-patches.sh) https://ac-deploy.pages.dev');return false;">复制</a>
       </div>
-      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可。运行后把 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端根目录。地图数据由服务端自带，不在补丁内。</p>
-      <p class="desc" style="color:var(--muted);font-size:12px;margin-top:6px;">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a> · 或手动逐卷下载：</p>
+      <p class="note" style="margin-top:10px;">运行后把解压出的 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端【根目录】即可。地图数据由服务端自带，不在补丁内。</p>
+      <p class="note">Windows 用户不想用命令，可手动逐卷下载（合并顺序见清单）：</p>
       <div class="files" id="patch-parts"></div>
+      <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a></p>
     </div>
 
-    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config）· 分发：Cloudflare Pages</footer>
+    <!-- 4. 一键部署（服务器端） -->
+    <div class="card">
+      <h2>一键部署（服务器端）</h2>
+      <p>在部署机（有公网 IP、装好 Docker）终端粘贴运行下面一行，脚本会自动从本 Pages 站拉取部署文件、生成 <code>.env</code> 并进入交互式控制台（部署 / 更新配置 / 重下地图 / 启停 / 日志 / 下载补丁）。</p>
+      <div class="file">
+        <div class="meta">
+          <div class="name">curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh &amp;&amp; bash deploy-console.sh https://ac-deploy.pages.dev</div>
+        </div>
+        <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://ac-deploy.pages.dev/deploy-console.sh -o deploy-console.sh && bash deploy-console.sh https://ac-deploy.pages.dev');return false;">复制</a>
+      </div>
+      <p class="note" style="margin-top:10px;">若你的 Pages 域名不是 <code>ac-deploy.pages.dev</code>，把命令里的地址一起替换即可（脚本第二个参数就是来源 BASE_URL）。</p>
+    </div>
+
+    <!-- 5. 使用说明（简明步骤） -->
+    <div class="card">
+      <h2>使用说明</h2>
+      <p><b>玩家：</b></p>
+      <ol>
+        <li>在本页注册账号（或让 GM 建号）。</li>
+        <li>下载客户端补丁并解压到 WoW 3.3.5a 根目录。</li>
+        <li>客户端 <code>realmlist.wtf</code> 填上服务器地址（即部署时设的 <code>REALM_ADDRESS</code>），启动游戏登录。</li>
+      </ol>
+      <p><b>部署者（首次）：</b></p>
+      <ol>
+        <li>复制上面的"一键部署"命令运行，按菜单 <code>1</code> 部署。</li>
+        <li>编辑 <code>.env</code>：<code>DOCKER_DB_ROOT_PASSWORD</code>（数据库密码）、<code>SOAP_PASSWORD</code>、<code>REALM_ADDRESS</code>（对外地址）、<code>TCR_NS</code>。</li>
+        <li><b>务必先</b> <code>docker compose pull</code>（漏这步会在服务器本地触发编译）。</li>
+        <li><code>bash inject-config.sh</code> 注入自定义配置 → <code>docker compose up -d</code> 起服。</li>
+      </ol>
+      <p class="warn" style="margin-top:10px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。</p>
+    </div>
+
+    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config / sync-addons）· 分发：Cloudflare Pages · 详细文档见仓库 README.md</footer>
   </div>
+
   <script>
-    // 动态列出分卷，避免硬编码文件名（数量随补丁大小变化）
+    // 复制命令按钮
+    function copyCmd(el, txt) {
+      navigator.clipboard.writeText(txt);
+      var old = el.textContent; el.textContent = '已复制';
+      setTimeout(function(){ el.textContent = old; }, 1500);
+    }
+
+    // 动态列出分卷（避免硬编码文件名）
     fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
       var parts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
         .map(function (l) { return l.slice(5).split(' ')[0]; });
@@ -135,10 +151,38 @@
       if (!box || !parts.length) return;
       box.innerHTML = parts.map(function (p) {
         return '<div class="file"><div class="meta"><div class="name">' + p +
-          '</div><div class="desc">分卷（所有卷下载后合并解压到客户端根目录）</div></div>' +
+          '</div><div class="desc">分卷（所有卷下载后按清单顺序合并解压到客户端根目录）</div></div>' +
           '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
       }).join('');
     }).catch(function () {});
+
+    // 注册表单：提交到 Cloudflare Function（/api/register）
+    var REG_API = location.origin + '/api/register';
+    document.getElementById('regBtn').addEventListener('click', function (e) {
+      e.preventDefault();
+      var u = document.getElementById('regUser').value.trim();
+      var p = document.getElementById('regPass').value;
+      var p2 = document.getElementById('regPass2').value;
+      var msg = document.getElementById('regMsg');
+      msg.className = ''; msg.textContent = '';
+      if (!u || !p) { msg.className = 'err'; msg.textContent = '账号和密码不能为空'; return; }
+      if (p.length < 6) { msg.className = 'err'; msg.textContent = '密码至少 6 位'; return; }
+      if (p !== p2) { msg.className = 'err'; msg.textContent = '两次密码不一致'; return; }
+      msg.textContent = '提交中…';
+      fetch(REG_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      }).then(function (r) {
+        return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+      }).then(function (res) {
+        if (res.ok) { msg.className = 'ok'; msg.textContent = '注册成功，可直接登录游戏'; }
+        else { msg.className = 'err'; msg.textContent = (res.j && res.j.message) || '注册失败'; }
+      }).catch(function () {
+        msg.className = 'err';
+        msg.textContent = '无法连接注册服务（CF Function 可能尚未部署）。请用 GM 账号手动建号。';
+      });
+    });
   </script>
 </body>
 </html>

@@ -13,7 +13,7 @@
 ```
 confs/
 ├── core/
-│   └── worldserver.conf       核心服务端配置（启用 SOAP 注册页建号通道）
+│   └── worldserver.conf       核心服务端配置（启用 SOAP 建号通道，供外部注册服务调 account create）
 ├── mod-playerbots/
 │   └── playerbots.conf        playerbots 模块覆盖（机器人规模等）
 └── mod-item-affixes/

@@ -1,38 +1,109 @@
-# AzerothCore-Build（全照搬官方 · 自托管轻量注册页）
+# AzerothCore-Build（全照搬官方）
 
-按官方 `azerothcore/azerothcore-wotlk` 原生编排构建的 WotLK 私服镜像源。
+基于官方 [`azerothcore/azerothcore-wotlk`](https://github.com/azerothcore/azerothcore-wotlk) 原生编排构建的 WotLK（3.3.5a）私服镜像源与部署包。
 
-**原则：官方的东西一个字不改，只换两个端点，其余全部走"追加"。**
+**核心原则：官方的东西一个字不改，只换两个端点，其余全部走"追加"。**
+
 - 编译位置：官方 CI → **GitHub Actions**
 - 镜像仓库：Docker Hub → **腾讯云 TCR + DockerHub 双推**
-- 所有定制走官方钦定扩展点：`deploy/docker-compose.override.yml` + 配置注入卷（`cp -n` 不覆盖）
+- 分发：部署包与玩家补丁 → **Cloudflare Pages**（国内连 GitHub 不稳，下载走 CF）
+- 定制扩展点：官方钦定的 `deploy/docker-compose.override.yml` + 配置注入卷（`cp -n` 不覆盖）
 
-## 目录结构（各功能分别放文件夹）
+## 架构
 
-| 路径 | 职责 |
-|---|---|
-| `config/modules.txt` | 43 个模组 Git 地址清单（编译期克隆进官方 `modules/`，由 `MODULES=static` 静态编入核心） |
-| `.github/workflows/build-core.yml` | 克隆官方 + 43 模组，构建 4 个官方 server target（worldserver/authserver/db-import/tools；地图改由 build-maps 提供）推双仓库（部署包见 `deploy/`，由 Cloudflare Pages 分发） |
-| `.github/workflows/build-maps.yml` | 下载社区地图源 `wowgaming/client-data@v20.0` 的 `Data.zip`，烤进独立 `ac-maps` 镜像推双仓库（替换官方 client-data） |
-| `.github/workflows/build-config.yml` | 构建 `ac-extra-config`（配置注入）镜像推双仓库 |
-| `.github/workflows/sync-addons.yml` | 定时把原仓库最新 `client_addon/` 刷回 `client-patches/` 并提交（保持离线兜底最新） |
-| `web/wotlk-web/` | 最轻自研注册页（静态表单 + 单文件后端，调 worldserver SOAP `account create`）；构建上下文为仓库根，会把 `client-patches/` 烤进 `static/patches` 供下载 |
-| `client-patches/` | 客户端补丁，按模组分子目录（MPQ 仅 `zhCN` 单份；AddOn 为离线兜底，构建时从原仓库拉最新覆盖）；`patches-client.zip` 不进仓库，由 Cloudflare Pages 构建时（build-pages.sh）现打 |
-| `config/extra-config/` | 自定义配置注入镜像源（`confs/` 按模组分：worldserver / playerbots / mod_item_affixes） |
-| `config/maps/` | `ac-maps` 镜像源（社区地图数据烤入，替换官方 client-data） |
-| `deploy/` | **完整部署包**：官方 `docker-compose.yml` + `conf/dist/env.ac` 固定副本 + 我们的 `docker-compose.override.yml` / `.env.example` / `inject-config.sh` + `index.html` 下载页；由 Cloudflare Pages 托管分发 |
-| `deploy/inject-config.sh` | 部署机把自定义配置注入卷 |
-| `deploy/docker-compose.override.yml` | 官方 compose 唯一扩展点（仅换镜像地址；`ac-web` 已不再纳入部署，源码保留于 `web/wotlk-web/`） |
-| `deploy/.env.example` | 部署变量样例（含 `DOCKER_DB_ROOT_PASSWORD` 等） |
-| `docs/DEPLOY.md` | 部署步骤 |
+| 镜像 | 由谁构建 | 作用 |
+|---|---|---|
+| `ac-wotlk-worldserver` / `authserver` / `db-import` / `tools` | `build-core.yml` | 官方 4 个 server target（克隆官方 + 43 模组，`MODULES=static` 静态编入） |
+| `ac-maps` | `build-maps.yml` | 社区地图源 `wowgaming/client-data@v20.0` 烤入，替换官方 `client-data`（部署机零提取） |
+| `ac-extra-config` | `build-config.yml` | 自定义 `.conf` 注入镜像（按模组分子目录） |
+| `ac-deploy`（Pages 产物） | `build-pages.sh` | 部署包静态站（含 `index.html` 下载页、配置、`patches/` 分卷补丁） |
 
-## 注册页选型
-> 注：`web/wotlk-web/`（ac-web）源码仍保留，但已不再作为部署组件；账号注册改由 Cloudflare 侧（Pages 静态表单 + Function 调 worldserver SOAP）完成，详见各部署文档。
-最轻自研（静态表单 + 单文件后端调 SOAP），排除 WordPress(acore-cms) 与 WoWSimpleRegistration 整套 PHP 应用。
-完整调研见工作区根目录的 `_官方注册页方案调研.md`。
+CI 工作流（均在 Actions 跑）：
+- `build-core.yml`：克隆官方 + 43 模组，构建 4 个 server target，推双仓库。
+- `build-maps.yml`：下载社区地图源烤入 `ac-maps`，推双仓库。
+- `build-config.yml`：构建 `ac-extra-config`，推双仓库。
+- `sync-addons.yml`：每周一把 3 个模组上游 `client_addon/` 刷回 `client-patches/` 作离线兜底并提交。
 
-## 完整构建/回归计划
-见工作区根目录的 `_重建计划_全照搬官方.md`（含官方机制核实、双推/部署包决策、待决策点）。
+## 目录结构
+
+```
+AzerothCore-Build/
+├── .github/workflows/        CI：build-core / build-maps / build-config / sync-addons
+├── client-patches/            玩家客户端补丁源（按模组分子目录）；Pages 构建时打成
+│                              patches-client.zip 再分卷。MPQ 仅 zhCN 单份，AddOn 为离线兜底
+│   └── make-archive.py        把 client-patches/ 按 WoW 目录层级（Data/zhCN + Interface/AddOns）
+│                              打成 patches-client.zip（被 build-pages.sh 调用）
+├── config/
+│   ├── modules.txt            43 个模组 Git 地址清单（编译期克隆进官方 modules/，去 -master 后缀）
+│   ├── extra-config/          自定义配置注入镜像源（ac-extra-config）
+│   │   ├── Dockerfile / docker-entrypoint.sh
+│   │   └── confs/             各模组自定义 .conf（core / mod-playerbots / mod-item-affixes）
+│   └── maps/                  ac-maps 镜像源（社区地图烤入）
+├── deploy/                    完整部署包 = Cloudflare Pages 源
+│   ├── index.html             Pages 主页：注册 + 补丁下载 + 一键部署 + 简介/说明
+│   ├── docker-compose.override.yml   官方钦定唯一扩展点：仅换镜像地址
+│   ├── .env.example           部署变量样例
+│   ├── inject-config.sh       部署机：pull ac-extra-config 镜像并导出自定义 .conf 到 env/dist/etc
+│   ├── build-pages.sh         Pages 构建命令（现拉官方文件 + 现打补丁分卷 + 现打 ac-deploy.zip）
+│   ├── download-patches.sh    玩家侧：批量下载分卷补丁并合并校验
+│   ├── deploy-console.sh      部署机交互控制台（拉文件 / 生成 .env / 菜单）
+│   └── （以下为构建产物，不进库）docker-compose.yml / conf/dist/env.ac / ac-deploy.zip / VERSION / patches/*
+```
+
+> `deploy/docker-compose.yml` 与 `conf/dist/env.ac` 是官方文件，由 `build-pages.sh` 在构建时从上游 raw 现拉，不进库（保证最新、不副本过期）。
+
+## 注册方案
+
+账号注册**不在本仓库内实现**，由 **Cloudflare 侧**承接：Pages 表单（即 `deploy/index.html` 的注册区块）提交到 **Cloudflare Function**（`/api/register`），Function 做图形验证 / 限频 / 白名单后，调 `worldserver` 的 SOAP `account create` 建号（SRP6 由核心自算）。
+
+本仓库只提供 worldserver 的 SOAP 通道（默认 `SOAP.IP=0.0.0.0`、Port 7878）。CF Function 落地时建议把 `SOAP.IP` 改绑 `127.0.0.1`（只让 Function 经 localhost 访问，不向公网开端口）。首次部署需手动建一个 `gmlevel=1` 的 `webreg` 账号（密码与 `.env` 的 `SOAP_PASSWORD` 一致）供 Function 调用。
+
+## 部署指南（服务器端）
+
+```bash
+# 1. 从 Cloudflare Pages 下载 deploy/ 整目录，进入该目录
+#    （或 git clone 本仓库后取 deploy/ 子目录）
+
+# 2. 填配置
+cp .env.example .env && vi .env
+#   设 IMAGE_TAG（或留 latest）/ TCR_NS / DOCKER_DB_ROOT_PASSWORD / SOAP_PASSWORD / REALM_ADDRESS
+#   ⚠️ 数据库密码在 .env 的 DOCKER_DB_ROOT_PASSWORD（官方 compose 读取），不在 env.ac
+
+# 3. 拉镜像（必须先 pull，否则 compose 会触发本地 build 整个 azerothcore）
+docker compose pull
+
+# 4. 注入自定义配置（ac-extra-config 把 confs 烤进 env/dist/etc，官方 cp -n 合并）
+bash inject-config.sh
+
+# 5. 官方原生启动（零修改，仅读 override 换镜像）
+docker compose up -d
+
+# 6. 建 SOAP 账号（外部注册服务用它调 worldserver 执行 account create）
+docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
+```
+
+访问：
+- 游戏：客户端连 `<服务器IP>:3724`（auth）/ `8085`（world；realm 地址填 REALM_ADDRESS）
+- 注册：由 Cloudflare 侧承接（本仓库不含注册页后端代码，注册表单在 Pages 主页）
+
+## 玩家补丁
+
+补丁包含 **AddOns（界面/功能插件）+ zhCN MPQ（中文客户端补丁）**。
+
+- **传输包约 3 MB**（MPQ 是未压缩/高冗余数据，zip 能压到这么小；远在 CF Pages 单文件 25 MiB 上限内）。
+- 玩家机器解压后还原为 **约 48 MB 的 MPQ** 给客户端读取。
+- 按需求**强制分卷**（方便"点一下下一堆"批量下载），每卷 ≤ 24 MiB。`download-patches.sh` 读 `patches-manifest.txt` 按序批量下载 → `cat` 合并 → sha256 校验 → 解压到客户端根目录。
+- Windows 玩家也可在 Pages 主页手动逐卷点下载。
+
+## 维护
+
+- **镜像双推 TCR + DockerHub**：override 默认走 TCR；想换 DockerHub 改 override 的 image 前缀即可。
+- **加/换模组**：改 `config/modules.txt` → 重新跑 `build-core.yml` → 重新从 CF Pages 取部署包部署（镜像 tag 变了则更新 .env 的 IMAGE_TAG）。
+- **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
+- **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 重新 `bash deploy/inject-config.sh`。
+- **改客户端补丁**：改 `client-patches/*` → 重新跑 Pages 构建（`build-pages.sh` 现打补丁包）。
+- **同步官方文件**：AC 更新后 `build-pages.sh` 步骤①会自动从上游现拉 `docker-compose.yml` 与 `env.ac`。
 
 ## 快速上手
-见 `docs/DEPLOY.md`：从 Cloudflare Pages 下载 `deploy/` 部署包 → 改 `.env` → `docker compose pull` → `bash deploy/inject-config.sh` → `docker compose up -d`。
+
+见 `deploy/index.html`（主页即注册页 + 补丁下载 + 一键部署 + 简介/说明），或按上方「部署指南」操作。完整构建/回归计划见工作区根的 `_重建计划_全照搬官方.md`。

@@ -10,8 +10,8 @@
 #
 # 行为：读 <BASE>/patches/patches-manifest.txt，按序批量下载所有分卷
 #       → cat 合并为完整 zip → 校验 sha256 → unzip 到输出目录（默认 ./patches-client）。
-# 说明：分卷是因为整包 ~48 MB（含 zhCN MPQ）超过 Cloudflare Pages / 阿里云
-#       ESA Pages 单文件 25 MiB 硬上限，故由 build-pages.sh 用 split -b 24m 切分。
+# 说明：补丁传输包约 3 MB（玩家端解压后还原为 ~48 MB 的 zhCN MPQ）；
+#       分卷按需求强制切分（每卷 ≤ 24 MiB），方便"点一下下一堆"批量下载与合并。
 # ============================================================
 set -euo pipefail
 

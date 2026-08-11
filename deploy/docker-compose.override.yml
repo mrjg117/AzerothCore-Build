@@ -2,8 +2,6 @@
 # 只做一件事：把官方镜像地址从 Docker Hub 换成我们的 TCR/DockerHub。
 # 不修改官方任何 service 的定义逻辑：各官方服务的镜像只是「替换指向」，
 # 其余字段（env_file / depends_on / healthcheck / ports / volumes）全部继承官方。
-# 注：注册页 ac-web 源码仍保留在 web/wotlk-web/，但已不再纳入本部署编排；
-#     账号注册改由外部完成（Cloudflare Pages + Function 调 worldserver SOAP）。
 
 services:
   # 官方 4 个核心 server 服务：仅替换镜像，其余（env_file / depends_on / healthcheck / ports）继承官方

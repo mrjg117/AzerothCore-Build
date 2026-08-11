@@ -86,7 +86,7 @@ while true; do
       dc pull
       dc up -d
       echo ""
-      echo "提示：首次部署后需建一个 gmlevel=1 的 webreg 账号供注册页 SOAP 调用："
+      echo "提示：首次部署后需建一个 gmlevel=1 的 webreg 账号供外部注册服务 SOAP 调用："
       echo "  dc exec ac-worldserver acore account create webreg <密码> 1"
       pause
       ;;

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================
-# make-client-archive.py
+# make-archive.py
 # ------------------------------------------------------------
 # 由 client-patches/（按模组分子目录存放）生成本地客户端安装用压缩包，
 # 按 WoW 客户端【路径层级】打包。玩家把压缩包解压到 WoW 客户端
@@ -16,15 +16,15 @@
 # 输入（可用环境变量覆盖）：
 #   PATCHES_DIR   扫描根目录，默认 <repo>/client-patches
 #   ARCHIVE_OUT   输出 zip 路径，默认 <PATCHES_DIR>/patches-client.zip
-# 用法（仓库内直接打）：python3 scripts/make-client-archive.py
+# 用法（仓库内直接打）：python3 client-patches/make-archive.py
 # 用法（Cloudflare Pages 构建 build-pages.sh 调用）：
-#   PATCHES_DIR=/app/static/patches python3 /app/scripts/make-client-archive.py
+#   PATCHES_DIR=/app/static/patches python3 /app/client-patches/make-archive.py
 # ============================================================
 import os
 import sys
 import zipfile
 
-# 本文件位于 <repo>/scripts/，向上两级即仓库根
+# 本文件位于 <repo>/client-patches/，向上一级即仓库根
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(SCRIPT_DIR)
 DEFAULT_DIST = os.path.join(REPO, 'client-patches')

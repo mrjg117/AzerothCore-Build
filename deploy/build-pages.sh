@@ -28,11 +28,11 @@ mkdir -p conf/dist
 curl -fsSL -o conf/dist/env.ac \
   "https://raw.githubusercontent.com/${AC_REPO}/${AC_REF}/conf/dist/env.ac"
 
-echo "==> [2/3] 构建玩家补丁包 patches-client.zip（>24MiB 自动分卷）"
+echo "==> [2/3] 构建玩家补丁包 patches-client.zip（按需求强制分卷，方便批量下载）"
 mkdir -p patches
 PATCHES_DIR="$REPO_ROOT/client-patches" \
 ARCHIVE_OUT="$SCRIPT_DIR/patches/patches-client.zip" \
-  python3 "$REPO_ROOT/scripts/make-client-archive.py"
+  python3 "$REPO_ROOT/client-patches/make-archive.py"
 
 # 分卷：始终切分为多卷（用户要求"分卷zip + 点一下下一堆"）。
 # 卷大小按总大小约 4 等分动态取值，保证至少有若干卷、且单卷 ≤ 24 MiB（CF Pages / 阿里云 ESA Pages 单文件硬上限 25 MiB）。
