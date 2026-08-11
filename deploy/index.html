@@ -43,7 +43,7 @@
     <p class="sub">一键部署 AzerothCore</p>
     <p class="meta-line">
       项目地址：<a href="https://github.com/mrjg117/AzerothCore-OK" target="_blank" rel="noopener">GitHub 仓库</a>
-      ｜ QQ群：<span id="qqText">（填群号）</span>
+      ｜ QQ群：（填群号）
     </p>
 
     <!-- 账号注册 -->
@@ -81,7 +81,7 @@
     <!-- 补丁下载 -->
     <div class="card">
       <h2>客户端补丁</h2>
-      <a class="btn big" id="dlAll" href="#">点几下下载</a>
+      <a class="btn big" id="dlAll" href="#">点击下载</a>
       <div class="files" id="patchParts"></div>
     </div>
 
@@ -90,7 +90,7 @@
       <h2>一键部署自己的服务器</h2>
       <div class="file">
         <div class="meta">
-          <div class="name" id="deployCmd">curl -fsSL .../deploy.sh | bash</div>
+          <div class="name" id="deployCmd">curl -fsSL .../acok.sh | bash</div>
         </div>
         <a class="btn" href="#" id="deployCopy">复制</a>
       </div>
@@ -125,7 +125,7 @@
     });
 
     // 一键部署脚本地址（用本页所在的 CF Worker 域名）
-    var deployCmd = 'curl -fsSL ' + location.origin + '/deploy.sh | bash';
+    var deployCmd = 'curl -fsSL ' + location.origin + '/acok.sh | bash';
     document.getElementById('deployCmd').textContent = deployCmd;
     document.getElementById('deployCopy').addEventListener('click', function (e) {
       e.preventDefault(); copyText(deployCmd, this);
