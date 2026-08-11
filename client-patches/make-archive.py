@@ -95,7 +95,10 @@ def build_readme():
         "   目录结构已按客户端路径打包，解压后会自动落到：\n"
         "     Data/zhCN/patch-zhCN-*.mpq                （中文客户端 Data/zhCN/）\n"
         "     Interface/AddOns/<模组名>/                 （插件目录）\n"
-        "3. 启动游戏，用注册页申请的账号登录即可。\n"
+        "     Data/<locale>/... 等\n"
+        "3. 双击压缩包里的【启动器.bat】：自动清客户端缓存、写好服务器地址、启动游戏。\n"
+        "   （服务器地址由运营方在打包时写入，玩家无需手动改 realmlist.wtf）\n"
+        "4. 用注册页申请的账号登录即可。\n"
         "\n"
         "包含的模组（源码按模组分目录存放于 client-patches/）：\n"
         "  - mod-item-affixes           （装备词缀；需 MPQ 补丁）\n"
@@ -103,6 +106,26 @@ def build_readme():
         "  - mod-bot-inventory-master   （机器人背包；仅 AddOn）\n"
         "\n"
         "AddOn 由构建期从上游模组仓库拉取，未单独提供下载。\n"
+    )
+
+
+def build_launcher(realm: str) -> str:
+    """生成 Windows 启动器 .bat：清缓存 + 写 realmlist.wtf + 启动 Wow.exe。
+
+    realm 来自构建期环境变量 REALM_ADDRESS（运营方在打包时填入服务器 IP/域名）。
+    内容保持 ASCII，避免 GBK/UTF-8 编码问题。
+    """
+    r = realm.replace('"', '').strip() or 'play.example.com'
+    return (
+        "@echo off\r\n"
+        "title AzerothCore-OK Launcher\r\n"
+        "echo Clearing WoW cache...\r\n"
+        "if exist Cache rmdir /s /q Cache\r\n"
+        "if exist WTF\\Cache rmdir /s /q WTF\\Cache\r\n"
+        "echo Setting realm address to " + r + " ...\r\n"
+        "echo SET REALMLIST " + r + " > realmlist.wtf\r\n"
+        "echo Launching WoW...\r\n"
+        "start \"\" Wow.exe\r\n"
     )
 
 
@@ -116,6 +139,9 @@ def main():
     total_src = 0
     with zipfile.ZipFile(OUT, 'w', zipfile.ZIP_DEFLATED) as z:
         z.writestr('README-安装说明.txt', build_readme())
+        # 启动器：清缓存 + 写 realmlist.wtf（服务器地址由 REALM_ADDRESS 注入）
+        realm = os.environ.get('REALM_ADDRESS', 'play.example.com')
+        z.writestr('启动器.bat', build_launcher(realm).encode('utf-8'))
         for src, dst in items:
             z.write(src, dst)
             total_src += os.path.getsize(src)

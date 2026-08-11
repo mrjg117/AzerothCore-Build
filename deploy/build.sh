@@ -42,6 +42,7 @@ while read -r name url _; do
 done < "$ADDONS_FILE"
 PATCHES_DIR="$REPO_ROOT/client-patches" \
 ARCHIVE_OUT="$SCRIPT_DIR/patches/patches-client.zip" \
+REALM_ADDRESS="${REALM_ADDRESS:-play.example.com}" \
   python3 "$REPO_ROOT/client-patches/make-archive.py"
 
 # 分卷：仅当整包超过 24 MiB 才切分（避免单文件过大、也便于批量下载）；

@@ -41,13 +41,17 @@ AzerothCore-OK/
 │   │   └── confs/             各模组自定义 .conf（core / mod-playerbots / mod-item-affixes）
 │   └── maps/                  ac-maps 镜像源（社区地图烤入）
 ├── deploy/                    Cloudflare Worker 源（本仓库的部署单元）
-│   ├── index.html             Worker 主页：注册 + 补丁下载 + 简介/说明（即注册页）
+│   ├── index.html             Worker 主页：注册 + 补丁下载 + 一键部署链接（即注册页）
 │   ├── worker.js              Worker 脚本：处理 /api/register（SOAP 调 worldserver 建号）+ 回退静态资源
 │   ├── wrangler.toml          Worker 配置（Static Assets 目录 + WORLD_HOST/PORT/SOAP 变量）
-│   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt）
+│   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
+├── server/                    游戏服务端一键部署（给服务器运营方）
+│   ├── deploy.sh              一行部署脚本：装 Docker、拉官方 compose + 本仓 override/.env/modules.txt、起服
+│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 43 模组的 TCR 构建产物
+│   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / TCR_NS / SOAP_*）
 ```
 
-> 本仓库**不再提供"服务器端一键部署整包"**（已放弃 `ac-deploy.zip` 与服务端控制台）。服务端用官方 `docker-compose.yml` 原生编排起服，注册页与补丁统一由 Cloudflare Worker 分发。
+> 本仓库**不再提供"服务器端一键部署整包 zip"**（已放弃 `ac-deploy.zip` 与服务端控制台）——但提供 `server/deploy.sh` 一行部署脚本，运营方直接 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
 
 ## 注册方案
 
@@ -92,12 +96,19 @@ npx wrangler deploy
 #    玩家访问分配的 *.workers.dev 或你在 Cloudflare 控制台绑的自定义域名
 ```
 
-### 二、游戏服务端（官方原生编排，本仓库不再提供一键包）
-服务端镜像仍由本仓库 CI 构建并推到 TCR/DockerHub；起服用官方 `docker-compose.yml` + 本仓 `config/extra-config` 注入自定义配置，**与之前一致**，只是不再打包成 `ac-deploy.zip` 一键分发。要点：
+### 二、游戏服务端（官方原生编排，server/deploy.sh 一行部署）
+服务端镜像仍由本仓库 CI 构建并推到 TCR/DockerHub；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
 ```bash
-# 取官方 docker-compose.yml，按需加 override 换镜像地址（官方钦定扩展点）
-docker compose pull            # 必须先 pull，否则 compose 会触发本地编译
-docker compose up -d           # 零修改启动，自动建库/导库/起服
+# 在你的服务器（有公网 IP、装好 Docker）终端运行：
+curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash
+# 脚本会：装 Docker → 拉官方 compose + 本仓 override/.env/modules.txt → docker compose pull && up -d
+# 可选用环境变量预填：REALM_ADDRESS / TCR_NS / SOAP_PASSWORD（否则手动编辑 .env）
+```
+也可手动分步（等价于脚本做的事）：
+```bash
+# 取官方 docker-compose.yml，加本仓 override 换镜像地址（官方钦定扩展点）
+docker compose -f docker-compose.yml -f server/docker-compose.override.yml pull   # 必须先 pull，否则触发本地编译
+docker compose -f docker-compose.yml -f server/docker-compose.override.yml up -d  # 零修改启动，自动建库/导库/起服
 docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 ```
 > 数据库密码在官方 compose 读取的 `.env` 的 `DOCKER_DB_ROOT_PASSWORD`，不在 `env.ac`。
@@ -113,6 +124,7 @@ docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD> 1
 - **传输包约 3 MB**（MPQ 是未压缩/高冗余数据，zip 能压到这么小；远低于 Cloudflare 单文件 25 MiB 上限）。
 - 玩家机器解压后还原为 **约 48 MB 的 MPQ** 给客户端读取。
 - 按需求**强制分卷**（方便"点一下下一堆"批量下载），每卷 ≤ 24 MiB。玩家在页面**手动逐卷点下载**，按 `patches-manifest.txt` 顺序合并解压到客户端根目录；也可点「下载全部」由 JS 把分卷合并成单个 zip。
+- 压缩包内含 **`启动器.bat`**：运营方在打包时通过 `REALM_ADDRESS`（或 `WORLD_HOST`）写入服务器地址，玩家双击即自动清客户端缓存、写好 `realmlist.wtf`、启动 `Wow.exe`，无需手动改地址。默认占位 `play.example.com`，`build.sh` 前设 `REALM_ADDRESS=你的域名或IP` 即可注入。
 
 ## 维护
 

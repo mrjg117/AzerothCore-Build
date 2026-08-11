@@ -38,12 +38,16 @@ client-patches/
 含 `.toc` 的目录 → `Interface/AddOns/<名>/`。结果层级：
 
 ```
+启动器.bat                        # 自动清缓存 + 写 realmlist.wtf(REALM_ADDRESS) + 启动 Wow.exe
+README-安装说明.txt
 Data/zhCN/patch-zhCN-Y.mpq
 Data/zhCN/patch-zhCN-Z.mpq
 Interface/AddOns/ItemAffixes/...
 Interface/AddOns/GuildLevels/...
 Interface/AddOns/BotInventoryMasterUI/...
 ```
+
+> **启动器.bat**：打包时由 `make-archive.py` 按环境变量 `REALM_ADDRESS`（运营方在 `build.sh` 前设定，默认占位 `play.example.com`）写入服务器地址。玩家解压后双击即可，无需手动改 `realmlist.wtf`。
 
 ## MPQ 生成（如需重生成，不在 CI 内）
 

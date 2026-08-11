@@ -3,178 +3,198 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AzerothCore WotLK 私服 · 注册 / 补丁 / 部署</title>
+  <title>AzerothCore-OK · 一键部署 AzerothCore</title>
   <style>
     :root { --bg:#0f1117; --card:#1a1d27; --fg:#e6e8ee; --muted:#9aa3b2; --accent:#5b8cff; --ok:#46c98b; --line:#2a2f3d; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
            background:var(--bg); color:var(--fg); line-height:1.6; }
-    .wrap { max-width:880px; margin:0 auto; padding:40px 20px 80px; }
-    h1 { font-size:27px; margin:0 0 6px; }
-    .sub { color:var(--muted); margin:0 0 30px; }
-    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:20px; }
-    .card h2 { font-size:17px; margin:0 0 14px; color:var(--accent); }
-    .card p { margin:0 0 12px; }
+    .wrap { max-width:760px; margin:0 auto; padding:36px 18px 70px; }
+    h1 { font-size:28px; margin:0 0 4px; letter-spacing:.5px; }
+    .sub { color:var(--accent); margin:0 0 6px; font-size:15px; }
+    .meta-line { color:var(--muted); font-size:13px; margin:0 0 26px; }
+    .meta-line a { color:var(--accent); text-decoration:none; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:18px; }
+    .card > h2 { font-size:17px; margin:0 0 14px; color:var(--accent); }
     .file { display:flex; align-items:center; justify-content:space-between; gap:12px;
             padding:12px 14px; background:#14161f; border:1px solid var(--line); border-radius:9px; margin-bottom:8px; }
     .file .meta { min-width:0; }
     .file .name { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; color:#cdd6f4; word-break:break-all; }
     .file .desc { font-size:12px; color:var(--muted); margin-top:2px; }
     a.btn { flex:none; text-decoration:none; background:var(--accent); color:#fff; font-size:13px;
-            padding:7px 14px; border-radius:7px; white-space:nowrap; cursor:pointer; }
+            padding:7px 14px; border-radius:7px; white-space:nowrap; cursor:pointer; border:none; }
     a.btn:hover { filter:brightness(1.1); }
+    a.btn.big { display:inline-block; padding:11px 22px; font-size:15px; margin-bottom:12px; }
     ol { margin:0; padding-left:20px; } ol li { margin:7px 0; }
     code { background:#14161f; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:13px; color:#cdd6f4; }
-    .warn { border-color:#5a3a1a; background:#2a1f14; color:#ffd9a8; }
-    .warn b { color:#ffb866; }
-    .note { font-size:12px; color:var(--muted); }
-    .formrow { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-    .formrow label { width:84px; flex:none; font-size:13px; color:var(--muted); padding-top:8px; }
-    .formrow input { flex:1; min-width:180px; padding:8px 10px; background:#14161f; border:1px solid var(--line);
+    .note { font-size:12px; color:var(--muted); margin:10px 0 0; }
+    .formrow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    .formrow label { width:72px; flex:none; font-size:13px; color:var(--muted); }
+    .formrow input { flex:1; min-width:160px; padding:8px 10px; background:#14161f; border:1px solid var(--line);
                      border-radius:7px; color:var(--fg); font-size:14px; }
     .formrow input:focus { outline:none; border-color:var(--accent); }
-    #regMsg { font-size:13px; margin-top:4px; min-height:18px; }
+    .captcha-q { font-family:ui-monospace,monospace; font-size:14px; color:var(--ok); min-width:84px; }
+    #regMsg { font-size:13px; margin-top:6px; min-height:18px; }
     #regMsg.ok { color:var(--ok); } #regMsg.err { color:#ff8a8a; }
-    footer { color:var(--muted); font-size:12px; text-align:center; margin-top:30px; }
+    .hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+    footer { color:var(--muted); font-size:12px; text-align:center; margin-top:28px; }
     a.link { color:var(--accent); }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>AzerothCore WotLK 私服</h1>
-    <p class="sub">基于官方 <code>azerothcore-wotlk</code> 原生编排构建 · 镜像由 GitHub Actions 编译 · 本页由 Cloudflare Worker（Static Assets）托管分发</p>
+    <h1>AzerothCore-OK</h1>
+    <p class="sub">一键部署 AzerothCore</p>
+    <p class="meta-line">
+      项目地址：<a href="https://github.com/mrjg117/AzerothCore-OK" target="_blank" rel="noopener">GitHub 仓库</a>
+      ｜ QQ群：<a href="#" id="qqLink">点击加入（填群号）</a>
+    </p>
 
-    <!-- 1. 项目简介 + 使用说明 -->
-    <div class="card">
-      <h2>项目简介</h2>
-      <p>这是一套 <b>WotLK（巫妖王之怒 3.3.5a）私服</b> 的镜像源与部署包。原则只有一条：<b>官方的东西一个字不改，只换两个端点，其余全部走"追加"</b>——</p>
-      <ul style="margin:0;padding-left:20px;">
-        <li>编译位置：官方 CI → <b>GitHub Actions</b></li>
-        <li>镜像仓库：Docker Hub → <b>腾讯云 TCR + DockerHub 双推</b></li>
-        <li>分发：玩家补丁 + 注册页 → <b>Cloudflare Worker（Static Assets）</b>（国内连 GitHub 不稳，下载走 CF）</li>
-        <li>模组：<b>43 个</b>社区模组在编译期静态编入核心（<code>MODULES=static</code>）</li>
-      </ul>
-      <p class="note" style="margin-top:12px;">镜像内含完整数据库基线、43 模组 SQL、社区地图数据；部署机 <code>docker compose up -d</code> 后自动建库、导库、起服。</p>
-    </div>
-
-    <!-- 2. 账号注册（本页即注册页） -->
+    <!-- 账号注册 -->
     <div class="card">
       <h2>账号注册</h2>
       <form id="regForm" autocomplete="off">
         <div class="formrow">
-          <label>账号名</label>
-          <input id="regUser" type="text" maxlength="32" placeholder="登录游戏用的账号（英文/数字）" required />
+          <label>账号</label>
+          <input id="regUser" type="text" maxlength="32" placeholder="登录游戏用的账号（英文/数字/下划线）" required />
         </div>
         <div class="formrow">
           <label>密码</label>
           <input id="regPass" type="password" maxlength="64" placeholder="至少 6 位" required />
         </div>
         <div class="formrow">
-          <label>确认密码</label>
+          <label>确认</label>
           <input id="regPass2" type="password" maxlength="64" placeholder="再输一次" required />
         </div>
-        <a class="btn" id="regBtn" style="border:none;">注册</a>
+        <div class="formrow">
+          <label>邮箱</label>
+          <input id="regEmail" type="email" maxlength="64" placeholder="找回/通知用（选填）" />
+        </div>
+        <div class="formrow">
+          <label>验证码</label>
+          <input id="capInput" type="text" maxlength="6" placeholder="计算结果" inputmode="numeric" style="max-width:120px;" required />
+          <span class="captcha-q" id="capQ">?</span>
+          <a class="btn" id="capRefresh" style="background:#2a2f3d;">换一题</a>
+        </div>
+        <input type="text" id="hp" class="hp" tabindex="-1" autocomplete="off" />
+        <a class="btn" id="regBtn" style="border:none; margin-top:4px;">注册</a>
         <div id="regMsg"></div>
       </form>
-      <p class="note" style="margin-top:10px;">
-        注册由 <b>Cloudflare Worker</b> 承接：本页表单提交到 Worker 的 <code>/api/register</code>（做图形验证 / 限频 / 白名单）后，再调服务端 <code>worldserver</code> 的 SOAP <code>account create</code> 建号（SRP6 由核心自算，密码不落库明文）。<br>
-        若 Worker 尚未部署，可用 GM 账号手动建号：<code>docker compose exec ac-worldserver acore account create &lt;账号&gt; &lt;密码&gt; 1</code>。
-      </p>
+      <p class="note">注册由 Cloudflare Worker 调 worldserver SOAP 建号（密码不落库明文）。若 Worker 未部署，可用 GM 账号手动建号。</p>
     </div>
 
-    <!-- 3. 玩家客户端补丁（AddOns + MPQ） -->
+    <!-- 补丁下载 -->
     <div class="card">
-      <h2>客户端补丁（AddOns + MPQ）</h2>
-      <p>补丁包含两部分：<b>AddOns</b>（界面/功能插件）+ <b>zhCN MPQ</b>（中文客户端补丁）。<br>
-      整包 <b>传输约 3 MB</b>（MPQ 是未压缩数据，zip 后能压到这么小），玩家机器解压后还原为 <b>约 48 MB 的 MPQ</b> 给客户端读取。远低于 Cloudflare 单文件 25 MiB 上限（即便分卷也只是为了方便批量下载）。</p>
-      <p class="note" style="margin-top:10px;">下载后把解压出的 <code>Data/</code> 与 <code>Interface/AddOns/</code> 复制到 WoW 3.3.5a 客户端【根目录】即可。地图数据由服务端自带，不在补丁内。</p>
-      <p class="note">Windows 用户不想用命令，可手动逐卷下载（合并顺序见清单）：</p>
-      <div class="files" id="patch-parts"></div>
-      <p class="note">或点下面一键下载全部分卷并合并为单个 zip：</p>
-      <a class="btn" id="dlAll" href="#" style="border:none;">下载全部（合并为单个 zip）</a>
-      <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a></p>
+      <h2>客户端补丁下载</h2>
+      <p>补丁含 <b>AddOns</b> + <b>zhCN MPQ</b>（中文客户端补丁）。解压到 WoW 3.3.5a 客户端【根目录】即可；地图数据由服务端自带。</p>
+      <a class="btn big" id="dlAll" href="#">自动批量下载</a>
+      <p class="note">点上面一键下载全部分卷并自动合并为单个 zip；下面也可按分卷单独下载：</p>
+      <div class="files" id="patchParts"></div>
+      <p class="note">分卷清单：<a class="link" href="./patches/patches-manifest.txt">patches-manifest.txt</a> ｜ 解压后双击压缩包里的 <b>启动器.bat</b> 会自动清缓存并写好转服地址。</p>
     </div>
 
-    <!-- 5. 使用说明（简明步骤） -->
+    <!-- 一键部署自己的服务器 -->
     <div class="card">
-      <h2>使用说明</h2>
-      <p><b>玩家：</b></p>
-      <ol>
-        <li>在本页注册账号（或让 GM 建号）。</li>
-        <li>下载客户端补丁并解压到 WoW 3.3.5a 根目录。</li>
-        <li>客户端 <code>realmlist.wtf</code> 填上服务器地址（即部署时设的 <code>REALM_ADDRESS</code>），启动游戏登录。</li>
-      </ol>
-      <p><b>部署本页（Cloudflare Worker，一行命令）：</b></p>
-      <ol>
-        <li>装好 Node.js，进 <code>deploy/</code> 目录。</li>
-        <li>设置机密：<code>wrangler secret put SOAP_PASSWORD</code>（与 worldserver 的 SOAP 密码一致）。</li>
-        <li>在 <code>wrangler.toml</code> 填 <code>WORLD_HOST</code>（worldserver 公网域名/IP）、<code>WORLD_PORT=7878</code>、<code>SOAP_LOGIN=webreg</code>。</li>
-        <li>一行部署：<code>npx wrangler deploy</code>。玩家访问分配的 <code>*.workers.dev</code> 或你绑的自定义域名。</li>
-      </ol>
-      <p class="warn" style="margin-top:10px;"><b>注意：</b>数据库密码在 <code>.env</code> 的 <code>DOCKER_DB_ROOT_PASSWORD</code>（官方 compose 读取），<b>不在</b> <code>env.ac</code>。</p>
+      <h2>一键部署自己的服务器</h2>
+      <p>在你的服务器（需装好 Docker、有公网 IP）终端粘贴运行下面一行，脚本会自动拉取配置并起服（含 43 个模组）：</p>
+      <div class="file">
+        <div class="meta">
+          <div class="name">curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash</div>
+          <div class="desc">部署前请准备好：数据库密码、对外域名/IP、SOAP 密码</div>
+        </div>
+        <a class="btn" href="#" onclick="copyCmd(this,'curl -fsSL https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main/server/deploy.sh | bash');return false;">复制</a>
+      </div>
     </div>
 
-    <footer>镜像构建：GitHub Actions（build-core / build-maps / build-config）· 分发：Cloudflare Worker（Static Assets）· 详细文档见仓库 README.md</footer>
+    <footer>镜像构建：GitHub Actions · 分发：Cloudflare Worker（Static Assets）· 详细文档见仓库 README.md</footer>
   </div>
 
   <script>
-    // 复制命令按钮
     function copyCmd(el, txt) {
       navigator.clipboard.writeText(txt);
       var old = el.textContent; el.textContent = '已复制';
       setTimeout(function(){ el.textContent = old; }, 1500);
     }
 
-    // 动态列出分卷（避免硬编码文件名），并支持「下载全部」合并为单个 zip
+    // ===== 客户端验证码（不调用函数，纯本地计算；+ 蜜罐防机器）=====
+    var capA, capB, capOp, capAns;
+    function genCaptcha() {
+      capA = 1 + Math.floor(Math.random() * 19);
+      capB = 1 + Math.floor(Math.random() * 19);
+      capOp = Math.random() < 0.5 ? '+' : '-';
+      if (capOp === '-') {
+        if (capB > capA) { var t = capA; capA = capB; capB = t; }
+        capAns = capA - capB;
+      } else {
+        capAns = capA + capB;
+      }
+      document.getElementById('capQ').textContent = capA + ' ' + capOp + ' ' + capB + ' = ?';
+    }
+    genCaptcha();
+    document.getElementById('capRefresh').addEventListener('click', function (e) {
+      e.preventDefault(); genCaptcha();
+      document.getElementById('capInput').value = '';
+    });
+
+    // ===== 补丁分卷列表 + 下载全部合并 =====
     var patchParts = [];
     fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
       patchParts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
         .map(function (l) { return l.slice(5).split(' ')[0]; });
-      var box = document.getElementById('patch-parts');
+      var box = document.getElementById('patchParts');
       if (!box) return;
       if (!patchParts.length) { box.innerHTML = '<div class="note">暂无可下载的补丁分卷</div>'; return; }
-      box.innerHTML = patchParts.map(function (p) {
-        return '<div class="file"><div class="meta"><div class="name">' + p +
-          '</div><div class="desc">分卷（所有卷下载后按清单顺序合并解压到客户端根目录）</div></div>' +
+      box.innerHTML = patchParts.map(function (p, i) {
+        return '<div class="file"><div class="meta"><div class="name">分卷' + (i + 1) + '：' + p +
+          '</div><div class="desc">单独下载这一卷</div></div>' +
           '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
       }).join('');
     }).catch(function () {});
 
-    // 一键下载全部分卷并拼接为单个 zip（分卷是同一 zip 的 split 片段，按顺序 cat 即还原）
     function downloadAll() {
       if (!patchParts.length) { alert('暂无可下载的补丁分卷'); return; }
-      var fetches = patchParts.map(function (p) {
+      Promise.all(patchParts.map(function (p) {
         return fetch('./patches/' + p).then(function (r) { return r.arrayBuffer(); });
-      });
-      Promise.all(fetches).then(function (bufs) {
+      })).then(function (bufs) {
         var blob = new Blob(bufs, { type: 'application/zip' });
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'patches-client.zip';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
-      }).catch(function () { alert('下载全部失败，请改用手动逐卷下载'); });
+      }).catch(function () { alert('合并下载失败，请改用分卷单独下载'); });
     }
-    var dlAll = document.getElementById('dlAll');
-    if (dlAll) dlAll.addEventListener('click', function (e) { e.preventDefault(); downloadAll(); });
+    document.getElementById('dlAll').addEventListener('click', function (e) {
+      e.preventDefault(); downloadAll();
+    });
 
-    // 注册表单：提交到 Cloudflare Worker 的 /api/register
+    // ===== 注册提交（含验证码 + 蜜罐校验）=====
     var REG_API = location.origin + '/api/register';
     document.getElementById('regBtn').addEventListener('click', function (e) {
       e.preventDefault();
+      var msg = document.getElementById('regMsg');
+      msg.className = ''; msg.textContent = '';
+      // 蜜罐：隐藏输入框被填 = 机器人
+      if (document.getElementById('hp').value) { msg.className = 'err'; msg.textContent = '验证失败'; return; }
+      // 验证码
+      var c = parseInt(document.getElementById('capInput').value, 10);
+      if (isNaN(c) || c !== capAns) {
+        msg.className = 'err'; msg.textContent = '验证码错误，已换一题';
+        genCaptcha(); document.getElementById('capInput').value = ''; return;
+      }
       var u = document.getElementById('regUser').value.trim();
       var p = document.getElementById('regPass').value;
       var p2 = document.getElementById('regPass2').value;
-      var msg = document.getElementById('regMsg');
-      msg.className = ''; msg.textContent = '';
-      if (!u || !p) { msg.className = 'err'; msg.textContent = '账号和密码不能为空'; return; }
-      if (p.length < 6) { msg.className = 'err'; msg.textContent = '密码至少 6 位'; return; }
+      var email = document.getElementById('regEmail').value.trim();
+      if (!/^[A-Za-z0-9_]{3,32}$/.test(u)) { msg.className = 'err'; msg.textContent = '账号需 3-32 位英文/数字/下划线'; return; }
+      if (p.length < 6 || /\s/.test(p)) { msg.className = 'err'; msg.textContent = '密码至少 6 位且不含空格'; return; }
       if (p !== p2) { msg.className = 'err'; msg.textContent = '两次密码不一致'; return; }
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.className = 'err'; msg.textContent = '邮箱格式不正确'; return; }
       msg.textContent = '提交中…';
       fetch(REG_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: u, password: p })
+        body: JSON.stringify({ username: u, password: p, email: email })
       }).then(function (r) {
         return r.json().then(function (j) { return { ok: r.ok, j: j }; });
       }).then(function (res) {
@@ -182,7 +202,7 @@
         else { msg.className = 'err'; msg.textContent = (res.j && res.j.message) || '注册失败'; }
       }).catch(function () {
         msg.className = 'err';
-        msg.textContent = '无法连接注册服务（Worker 可能尚未部署）。请用 GM 账号手动建号。';
+        msg.textContent = '无法连接注册服务（Worker 可能未部署）。请用 GM 账号手动建号。';
       });
     });
   </script>
