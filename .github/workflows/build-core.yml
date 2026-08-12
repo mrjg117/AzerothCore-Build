@@ -69,7 +69,7 @@ jobs:
         run: |
           set -e
           BP="${{ github.workspace }}/acore-build-repo/build-patches"
-          OFF="${{ github.workspace }}/acore-build-repo/official"
+          OFF="${{ github.workspace }}/official"
           for moddir in "$BP"/*/; do
             [ -d "$moddir" ] || continue
             name=$(basename "$moddir")
