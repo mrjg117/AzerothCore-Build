@@ -50,9 +50,13 @@ async function soapAccountCreate(username, password, env) {
 </SOAP-ENV:Envelope>`;
 
   const auth = 'Basic ' + btoa(login + ':' + pass);
+  const controller = new AbortController();
+  // 12s 硬超时：worldserver 未起/卡死时快速失败，避免干等 Cloudflare 的 100s 上限
+  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const r = await fetch(`http://${host}:${port}/`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
         'SOAPAction': '"urn:AC#console"',
@@ -65,7 +69,10 @@ async function soapAccountCreate(username, password, env) {
     if (/already exist/i.test(text)) return 'exists';
     return '注册失败：' + text.slice(0, 200);
   } catch (e) {
+    if (e.name === 'AbortError') return '服务端 SOAP 超时（12s 无响应，worldserver 可能未启动）';
     return '无法连接服务端 SOAP：' + e.message;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -80,7 +87,9 @@ async function handleRegister(request, env) {
   let body;
   try {
     body = await request.json();
-  } catch {
+  } catch (e) {
+    // 仅吞掉 JSON 解析错误（SyntaxError）；其余异常（如 AbortError）向上抛，便于排查
+    if (!(e instanceof SyntaxError)) throw e;
     return json({ ok: false, message: '请求体格式错误' }, 400);
   }
 

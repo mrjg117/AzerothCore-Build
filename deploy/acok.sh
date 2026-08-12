@@ -39,9 +39,12 @@ curl -fsSL "$REPO_RAW/server/.env.example"                 -o .env
 curl -fsSL "https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/docker-compose.yml" -o docker-compose.yml
 
 # 2) 用环境变量覆盖 .env（没传则保持 .env.example 默认值）
-[ -n "${REALM_ADDRESS:-}" ] && sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$REALM_ADDRESS|" .env
-[ -n "${IMAGE_NS:-}" ]      && sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$IMAGE_NS|" .env
-[ -n "${SOAP_PASSWORD:-}" ] && sed -i "s|^SOAP_PASSWORD=.*|SOAP_PASSWORD=$SOAP_PASSWORD|" .env
+# 转义 sed 替换串里的 &（sed 中代表匹配内容）、|（本脚本用作分隔符），
+# 避免 REALM_ADDRESS 等含这些字符时破坏替换（如带查询串的地址）。
+esc_sed() { printf '%s' "$1" | sed 's/[&|]/\\&/g'; }
+[ -n "${REALM_ADDRESS:-}" ] && sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc_sed "$REALM_ADDRESS")|" .env
+[ -n "${IMAGE_NS:-}" ]      && sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc_sed "$IMAGE_NS")|" .env
+[ -n "${SOAP_PASSWORD:-}" ] && sed -i "s|^SOAP_PASSWORD=.*|SOAP_PASSWORD=$(esc_sed "$SOAP_PASSWORD")|" .env
 
 # 3) 起服（务必先 pull，否则会触发本机编译）
 echo "==> docker compose pull ..."
@@ -64,6 +67,7 @@ docker compose exec -T ac-worldserver acore account set gmlevel "$SOAP_LOGIN" 3 
 
 # 5) 把对外 realm 地址写入 auth 库（玩家认证后连 world 用这个地址）
 REALM="$(grep '^REALM_ADDRESS=' .env | cut -d= -f2-)"
+REALM_SQL="${REALM//\'/\'\'}"   # MySQL 单引号转义（' -> ''），防 REALM 含单引号时注入/破坏语句
 DBPW="$(grep '^DOCKER_DB_ROOT_PASSWORD=' .env | cut -d= -f2-)"
 echo "==> 写入 realm 对外地址 ($REALM) 到 acore_auth.realmlist ..."
 for i in $(seq 1 36); do
@@ -71,7 +75,7 @@ for i in $(seq 1 36); do
   sleep 3
 done
 docker compose exec -T ac-database mysql -uroot -p"$DBPW" acore_auth \
-  -e "UPDATE realmlist SET address='$REALM' WHERE id=1;" >/dev/null 2>&1 \
+  -e "UPDATE realmlist SET address='$REALM_SQL' WHERE id=1;" >/dev/null 2>&1 \
   && echo "    realm 地址已更新为 $REALM" \
   || echo "    realmlist 未就绪，请稍后手动执行：UPDATE acore_auth.realmlist SET address='$REALM' WHERE id=1;"
 

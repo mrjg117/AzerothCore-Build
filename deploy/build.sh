@@ -24,16 +24,19 @@ ADDONS_FILE="$REPO_ROOT/client-patches/addons.txt"
 while read -r name url _; do
   # 跳过空行与 # 注释行
   [ -z "$name" ] && continue
-  case "$name" in \#*) continue ;; esac
+  [ "${name:0:1}" = "#" ] && continue
   [ -z "$url" ] && { echo "    警告: $name 缺 url，跳过"; continue; }
-  rm -rf "/tmp/addon_$name" && git clone --depth 1 "$url" "/tmp/addon_$name"
-  if [ -d "/tmp/addon_$name/client_addon" ]; then
+  # 用 mktemp -d 隔离，避免多实例并行构建时临时目录互相踩
+  tmpd="$(mktemp -d)" || { echo "    无法创建临时目录，跳过 $name"; continue; }
+  git clone --depth 1 "$url" "$tmpd"
+  if [ -d "$tmpd/client_addon" ]; then
     mkdir -p "$REPO_ROOT/client-patches/$name/addon"
-    cp -rf "/tmp/addon_$name/client_addon/." "$REPO_ROOT/client-patches/$name/addon/"
+    cp -rf "$tmpd/client_addon/." "$REPO_ROOT/client-patches/$name/addon/"
     echo "    拉取 $name 的 AddOn"
   else
     echo "    警告: $name 上游无 client_addon/，跳过"
   fi
+  rm -rf "$tmpd"
 done < "$ADDONS_FILE"
 PATCHES_DIR="$REPO_ROOT/client-patches" \
 ARCHIVE_OUT="$SCRIPT_DIR/patches/patches-client.zip" \

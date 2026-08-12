@@ -72,7 +72,13 @@ Worker 要调通 worldserver 的 SOAP，必须知道**后端（部署机）的�
 
 > 也就是说你**只需要提供部署机的域名或 IP**（Worker 据此连 `:7878` 的 SOAP），密码类用 `wrangler secret put` 注入即可。
 
-worldserver 端需开启 SOAP（`SOAP.Enabled=1`、Port 7878、`Login=webreg`、`Password=<与 secret 一致>`、`IP=0.0.0.0`，部署时建议改绑 `127.0.0.1` 只让 Worker 经公网地址访问）。`webreg` 账号由 `acok.sh` 在首次起服时**自动创建**（gmlevel 3，密码与 `SOAP_PASSWORD` 一致），无需手动敲命令。
+worldserver 端需开启 SOAP（`SOAP.Enabled=1`、Port 7878、`Login=webreg`、`Password=<与 secret 一致>`、`IP=0.0.0.0`）。
+
+> ⚠️ **SOAP 安全须知（必读）**：SOAP 走**明文 HTTP Basic Auth**，且 Cloudflare Worker 在云端、必须跨公网访问你的 7878，**因此不能绑 `127.0.0.1`**（否则 Worker 根本连不上）。正确做法二选一，切勿把 7878 对全网开放：
+> 1. **Cloudflare Tunnel（推荐）**：服务器装 `cloudflared`，把 `worldserver:7878` 只通过隧道暴露给 Worker（隧道域名仅 Worker 调用），防火墙 7878 入站可全关。
+> 2. **防火墙限源**：放通 7878 但**仅允许 Cloudflare 边缘 IP 段**（Worker 的请求都来自这些 IP），其余 7878 入站一律拒绝（Cloudflare IP 段见官方 `ips.cloudflare.com`）。
+>
+> `SOAP_PASSWORD` 必须用 `acok.sh` 的 `SOAP_PASSWORD` 环境变量或 `.env` 显式配置为强密码——**未配置会直接启动失败**（已禁止弱默认密码）。`webreg` 账号由 `acok.sh` 在首次起服时**自动创建**（gmlevel 3，密码与 `SOAP_PASSWORD` 一致），无需手动敲命令。
 
 ### 频率限制（Cloudflare WAF，本项目唯一防刷层）
 注册接口 `/api/register` 的限流**只在 Cloudflare WAF 边缘做**，不消耗 Worker 函数额度，且功能覆盖原 Worker 内存 map（按 IP 限频 + 封禁时长）。在 Cloudflare 控制台「Security → WAF → Rate limiting rules」建一条规则：

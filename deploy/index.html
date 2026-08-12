@@ -156,7 +156,8 @@
         a.href = URL.createObjectURL(blob);
         a.download = 'patches-client.zip';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
+        // 延迟回收：a.click() 后立即 revoke 可能浏览器还没开始下载（大文件边界），延迟 4s 更稳
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
       }).catch(function () { alert('合并下载失败，请改用分卷单独下载'); });
     }
     document.getElementById('dlAll').addEventListener('click', function (e) {
