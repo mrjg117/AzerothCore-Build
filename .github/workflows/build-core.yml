@@ -65,17 +65,14 @@ jobs:
       - name: Apply build-patch (core + module source fixes before compile)
         run: |
           set -e
-          P=../acore-build-repo/build-patch
-          cd official
+          # 绝对路径：仓库 checkout 到 acore-build-repo/ 子目录，避免 cd 后相对路径错位
+          P="${{ github.workspace }}/acore-build-repo/build-patch"
           echo "== core patch (autonomous-altbots 核心预编译语句) =="
-          git apply --3way --whitespace=nowarn "$P/aa_core.patch" || patch -p1 --fuzz=5 < "$P/aa_core.patch"
-          cd modules/mod-playerbots
+          ( cd official && git apply --3way --whitespace=nowarn "$P/aa_core.patch" || patch -p1 --fuzz=5 < "$P/aa_core.patch" )
           echo "== playerbots patch (纳管小号始终满 AI + 跳过随机工会) =="
-          git apply --3way --whitespace=nowarn "$P/aa_playerbots.patch" || patch -p1 --fuzz=5 < "$P/aa_playerbots.patch"
-          cd ../mod-classic-warrior-additions
+          ( cd official/modules/mod-playerbots && git apply --3way --whitespace=nowarn "$P/aa_playerbots.patch" || patch -p1 --fuzz=5 < "$P/aa_playerbots.patch" )
           echo "== warrior include patch (AuraEffect 头文件) =="
-          git apply --3way --whitespace=nowarn "$P/warrior_include.patch" || patch -p1 --fuzz=5 < "$P/warrior_include.patch"
-          cd ../../..
+          ( cd official/modules/mod-classic-warrior-additions && git apply --3way --whitespace=nowarn "$P/warrior_include.patch" || patch -p1 --fuzz=5 < "$P/warrior_include.patch" )
           echo "build-patch applied"
 
       - name: Build & push 4 official server targets (ghcr.io)
