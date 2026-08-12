@@ -1,4 +1,4 @@
-# 42 个模组清单（由表上筛选结果生成，2026-08-08；已剔除冗余的 mod-bot-inventory-master）
+# 41 个模组清单（由表上筛选结果生成，2026-08-08；已剔除冗余的 mod-bot-inventory-master 与 mod-autonomous-altbots）
 # 每行一个 Git 仓库 URL（.git 结尾）；以 # 开头的行为注释，Dockerfile 会跳过。
 # 编译期克隆进 azerothcore 的 modules/，由 MODULES=static 自动静态编入核心。
 # 不锁 commit（遵循项目决策：rebuild = 拉最新）。
@@ -13,7 +13,6 @@ https://github.com/Brytenwally/Loot-Arbiter.git
 https://github.com/Brytenwally/Random-Item-Enchants.git
 
 # ===== 硬依赖 mod-playerbots =====
-https://github.com/Gutwormy/mod-autonomous-altbots.git
 https://github.com/jrad7/mod-dungeon-clear.git
 https://github.com/barnaclebarry/mod-optimal-bot-raid.git
 https://github.com/DustinHendrickson/mod-player-bot-level-brackets.git
