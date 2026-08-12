@@ -2,10 +2,11 @@ name: build-maps
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, master]
-    paths:
-      - "config/maps/**"
+  # 定期打包：取消注释启用，三选一（默认只手动）
+  # schedule:
+  #   - cron: '0 5 * * *'     # 每日 05:00 UTC
+  #   - cron: '0 5 * * 1'     # 每周一 05:00 UTC
+  #   - cron: '0 5 1 * *'     # 每月 1 号 05:00 UTC
 
 env:
   CLIENT_DATA_REF: v20.0   # wowgaming/client-data Release tag（pinned，换源改这里）

@@ -4,6 +4,10 @@
 //      （SRP6 由核心自算，密码不落库明文）。
 //   2) 其余请求回退给 Workers Static Assets（注册页 index.html + 补丁 patches/）。
 //
+// 频率限制：由 Cloudflare WAF（边缘 Rate Limiting 规则，匹配 /api/register）统一处理，
+// 不在此处重复计数——请求一旦进 Worker 就已计入函数调用，内存 map 省不了额度，
+// 且 WAF 在边缘直接挡，功能覆盖原内存 map（按 IP 限频 + 封禁时长）且零函数消耗。
+//
 // 部署：cd deploy && npx wrangler deploy
 // 机密：wrangler secret put SOAP_PASSWORD
 // 变量：在 wrangler.toml 的 [vars] 填 WORLD_HOST / WORLD_PORT / SOAP_LOGIN
@@ -73,18 +77,6 @@ async function handleRegister(request, env) {
     return json({ ok: false, message: 'Method Not Allowed' }, 405);
   }
 
-  // 轻量防刷：isolate 内存 map 按 IP，按天计数 + 重试计数；只防坏人，不求精确
-  const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-  const rate = globalThis.__acRate || (globalThis.__acRate = new Map());
-  const _now = Date.now();
-  const _day = Math.floor(_now / 86400000);
-  let e = rate.get(ip);
-  if (!e || e.day !== _day) { e = { day: _day, reg: 0, tries: 0, blockUntil: 0 }; rate.set(ip, e); }
-  if (_now < e.blockUntil) return json({ ok: false, message: '请求过于频繁，请稍后再试' }, 429);
-  e.tries++;
-  if (e.tries > 50) { e.blockUntil = _now + 86400000; return json({ ok: false, message: '请求过于频繁，请稍后再试' }, 429); }
-  if (e.reg >= 10) return json({ ok: false, message: '今日注册次数已达上限，明天再来' }, 429);
-
   let body;
   try {
     body = await request.json();
@@ -105,7 +97,7 @@ async function handleRegister(request, env) {
 
   const res = await soapAccountCreate(username, password, env);
   if (res === 'exists') return json({ ok: false, message: '账号已存在' }, 409);
-  if (res === 'ok') { e.reg++; return json({ ok: true, message: '注册成功，可直接登录游戏' }); }
+  if (res === 'ok') return json({ ok: true, message: '注册成功，可直接登录游戏' });
   return json({ ok: false, message: res || '注册服务暂时不可用' }, 502);
 }
 
