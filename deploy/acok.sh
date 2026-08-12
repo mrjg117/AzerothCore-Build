@@ -3,7 +3,7 @@
 # AzerothCore-OK —— 一键部署游戏服务端（含 42 个模组）
 # ------------------------------------------------------------
 # 一行运行（在你的服务器终端，需有公网 IP、装好 Docker）：
-#   curl -fsSL https://<你的Worker域名>/acok.sh | bash
+#   WORKER_BASE=https://<你的Worker域名> curl -fsSL https://<你的Worker域名>/acok.sh | WORKER_BASE=https://<你的Worker域名> bash
 #
 # 它做了什么（全程无需手动敲命令）：
 #   1) 没装 Docker 就尝试装（Ubuntu/Debian/CentOS）
@@ -13,6 +13,7 @@
 #   5) 自动建 SOAP 注册账号 webreg（gmlevel 3）并写入 realm 对外地址到 auth 库
 #
 # 可用环境变量（不传则保持 .env.example 默认值）：
+#   WORKER_BASE    本仓 Cloudflare Worker 域名（acok.sh 与 compose/env 均从此同源拉取；必填）
 #   REALM_ADDRESS   对外地址（写入 auth 库 realmlist + 补丁包启动器.bat），如 play.example.com 或 1.2.3.4
 #   IMAGE_NS        镜像命名空间（默认 ghcr.io/mrjg117）
 #   SOAP_PASSWORD   注册 SOAP 密码（需与 Cloudflare Worker 的 SOAP_PASSWORD 一致）
@@ -21,7 +22,13 @@
 set -euo pipefail
 
 WORK_DIR="${WORK_DIR:-/opt/azerothcore-ok}"
-REPO_RAW="https://raw.githubusercontent.com/mrjg117/AzerothCore-OK/main"
+# Worker 静态资源根（acok.sh 本身也托管在这里；compose/env 同源拉取，不再依赖 GitHub raw）
+WORKER_BASE="${WORKER_BASE:-}"
+if [ -z "$WORKER_BASE" ]; then
+  echo "!! 缺少 WORKER_BASE：请传入你的 Cloudflare Worker 域名，例如"
+  echo "   WORKER_BASE=https://azerothcore-ok.xxx.workers.dev curl -fsSL https://azerothcore-ok.xxx.workers.dev/acok.sh | WORKER_BASE=https://azerothcore-ok.xxx.workers.dev bash"
+  exit 1
+fi
 
 # 0) 装 Docker
 if ! command -v docker >/dev/null 2>&1; then
@@ -33,8 +40,8 @@ docker compose version >/dev/null 2>&1 || { echo "需要 docker compose 插件�
 # 1) 拉部署文件
 mkdir -p "$WORK_DIR" && cd "$WORK_DIR"
 echo "==> 下载部署文件到 $WORK_DIR"
-curl -fsSL "$REPO_RAW/server/docker-compose.override.yml" -o docker-compose.override.yml
-curl -fsSL "$REPO_RAW/server/.env.example"                 -o .env
+curl -fsSL "$WORKER_BASE/docker-compose.override.yml" -o docker-compose.override.yml
+curl -fsSL "$WORKER_BASE/.env.example"                -o .env
 # 官方基础 compose（azerothcore-wotlk 原生编排，我们只覆盖镜像地址）
 curl -fsSL "https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/docker-compose.yml" -o docker-compose.yml
 

@@ -7,7 +7,7 @@
 - 编译位置：官方 CI → **GitHub Actions**
 - 镜像仓库：GitHub Container Registry（**ghcr.io/mrjg117**，CI 单推公开仓库）
 - 分发：玩家补丁 + 注册页 → **Cloudflare Worker（Static Assets）**
-- 定制扩展点：官方钦定的 `docker-compose.override.yml`（本仓库在 `server/` 下发，acok.sh 拉取）+ 配置注入卷（`cp -n` 不覆盖）
+- 定制扩展点：官方钦定的 `docker-compose.override.yml`（随 `deploy/` 由 CF Worker 托管，acok.sh 同源拉取）+ 配置注入卷（`cp -n` 不覆盖）
 
 ## 架构
 
@@ -40,15 +40,14 @@ AzerothCore-OK/
 │   │   ├── Dockerfile / docker-entrypoint.sh
 │   │   └── confs/             各模组自定义 .conf（core / mod-playerbots / mod-item-affixes）
 │   └── maps/                  ac-maps 镜像源（社区地图烤入）
-├── deploy/                    Cloudflare Worker 源（本仓库的部署单元）
+├── deploy/                    Cloudflare Worker 源（本仓库的部署单元），含游戏服务端部署文件
 │   ├── index.html             Worker 主页（即注册页）：账号注册 + 补丁下载 + 一键部署链接
 │   ├── worker.js              Worker 脚本：处理 /api/register（SOAP 调 worldserver 建号）+ 回退静态资源（频率限制交给 Cloudflare WAF）
 │   ├── wrangler.toml          Worker 配置（Static Assets 目录 + WORLD_HOST/启用/SOAP 变量）
-│   ├── acok.sh              游戏服务端一行部署脚本（由 CF Worker 托管，页面"一键部署脚本"指向它）
-│   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
-├── server/                    游戏服务端部署文件（被 acok.sh 拉取）
+│   ├── acok.sh              游戏服务端一行部署脚本（由 CF Worker 托管，compose/env 同源拉取）
 │   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 42 模组的 ghcr.io 构建产物
-│   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / IMAGE_NS / SOAP_*）
+│   ├── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / IMAGE_NS / SOAP_*）
+│   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
 ```
 
 > 本仓库不提供"服务器端一键部署整包 zip"。提供 `deploy/acok.sh` 一行部署脚本（由 CF Worker 托管），运营方 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
@@ -109,18 +108,18 @@ npx wrangler deploy
 ```
 
 ### 二、游戏服务端（官方原生编排，deploy/acok.sh 一行部署）
-服务端镜像仍由本仓库 CI 构建并推到 ghcr.io；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
+服务端镜像仍由本仓库 CI 构建并推到 ghcr.io；起服用官方 `docker-compose.yml` + 本仓 `deploy/docker-compose.override.yml`（仅换镜像地址）+ `deploy/.env.example`。运营方一行命令即可：
 ```bash
 # 在你的服务器（有公网 IP、装好 Docker）终端运行：
-curl -fsSL https://<你的Worker域名>/acok.sh | bash
-# 脚本会：装 Docker → 拉官方 compose + 本仓 override/.env → pull && up -d → 自动建 webreg SOAP 账号 + 写入 realm 对外地址
+WORKER_BASE=https://<你的Worker域名> curl -fsSL https://<你的Worker域名>/acok.sh | WORKER_BASE=https://<你的Worker域名> bash
+# 脚本会：装 Docker → 从 WORKER_BASE 同源拉官方 compose + 本仓 override/.env → pull && up -d → 自动建 webreg SOAP 账号 + 写入 realm 对外地址
 # 可选用环境变量预填：REALM_ADDRESS / IMAGE_NS / SOAP_PASSWORD（否则手动编辑 .env）
 ```
 也可手动分步（等价于脚本做的事）：
 ```bash
 # 取官方 docker-compose.yml，加本仓 override 换镜像地址（官方钦定扩展点）
-docker compose -f docker-compose.yml -f server/docker-compose.override.yml pull   # 必须先 pull，否则触发本地编译
-docker compose -f docker-compose.yml -f server/docker-compose.override.yml up -d  # 零修改启动，自动建库/导库/起服
+docker compose -f docker-compose.yml -f deploy/docker-compose.override.yml pull   # 必须先 pull，否则触发本地编译
+docker compose -f docker-compose.yml -f deploy/docker-compose.override.yml up -d  # 零修改启动，自动建库/导库/起服
 # 建 webreg 账号 + 写 realm 地址（脚本已自动做；手动时执行）：
 docker compose exec ac-worldserver acore account create webreg <SOAP_PASSWORD>
 docker compose exec ac-worldserver acore account set gmlevel webreg 3
@@ -140,7 +139,7 @@ docker compose exec ac-database mysql -uroot -p"$DOCKER_DB_ROOT_PASSWORD" acore_
 
 ## 维护
 
-- **镜像单推 ghcr.io**：override 默认走 `ghcr.io/mrjg117`；换别的仓库改 override 的 `IMAGE_NS` 前缀即可（override 在 `server/`，起服时由 acok.sh 拉取）。
+- **镜像单推 ghcr.io**：override 默认走 `ghcr.io/mrjg117`；换别的仓库改 override 的 `IMAGE_NS` 前缀即可（override 随 `deploy/` 由 CF Worker 托管，起服时由 acok.sh 同源拉取）。
 - **加/换模组**：改 `config/modules.txt` → 手动跑 `build-core.yml`（CI 已挂 ccache 持久化，同模组集合下重编很快）。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
 - **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 服务端重新注入。
