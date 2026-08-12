@@ -37,7 +37,7 @@ https://github.com/noisiver/mod-assistant.git
 https://github.com/Day36512/mod-auto-gather-tracking.git
 https://github.com/azerothcore/mod-autobalance.git
 https://github.com/poorhatsoap/mod-autolearn-skills.git
-https://github.com/ZhengPeiRu21/mod-challenge-modes.git
+https://github.com/Karmiven/mod-challenge-modes.git
 https://github.com/RhinoInquiring/mod-classic-warrior-additions.git
 https://github.com/silviu20092/mod-dynamic-gathering-speed.git
 https://github.com/CDBrodie/mod-enhanced-worldchat.git

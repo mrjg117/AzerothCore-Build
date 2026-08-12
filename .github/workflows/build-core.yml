@@ -62,6 +62,22 @@ jobs:
             git clone --depth 1 "$url" "modules/$name"
           done < ../acore-build-repo/config/modules.txt
 
+      - name: Apply build-patch (core + module source fixes before compile)
+        run: |
+          set -e
+          P=../acore-build-repo/build-patch
+          cd official
+          echo "== core patch (autonomous-altbots 核心预编译语句) =="
+          git apply --3way --whitespace=nowarn "$P/aa_core.patch" || patch -p1 --fuzz=5 < "$P/aa_core.patch"
+          cd modules/mod-playerbots
+          echo "== playerbots patch (纳管小号始终满 AI + 跳过随机工会) =="
+          git apply --3way --whitespace=nowarn "$P/aa_playerbots.patch" || patch -p1 --fuzz=5 < "$P/aa_playerbots.patch"
+          cd ../mod-classic-warrior-additions
+          echo "== warrior include patch (AuraEffect 头文件) =="
+          git apply --3way --whitespace=nowarn "$P/warrior_include.patch" || patch -p1 --fuzz=5 < "$P/warrior_include.patch"
+          cd ../../..
+          echo "build-patch applied"
+
       - name: Build & push 4 official server targets (ghcr.io)
         run: |
           cd official
