@@ -45,7 +45,7 @@ https://github.com/Nevaden/mod-item-affixes.git
 https://github.com/TrisBits/mod-junk-to-gold-plus.git
 https://github.com/KingDown-Assoc/mod-living-bomb.git
 https://github.com/azerothcore/mod-low-level-rbg.git
-https://github.com/araxiaonline/mod-mythic-plus.git
+https://github.com/silviu20092/mod-mythic-plus.git
 https://github.com/BytesGalore/mod-no-hearthstone-cooldown.git
 https://github.com/KingDown-Assoc/mod-prayer-of-mending.git
 https://github.com/Tereneckla/mod-profession-experience.git
