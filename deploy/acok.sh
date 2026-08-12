@@ -14,7 +14,7 @@
 #
 # 可用环境变量（不传则保持 .env.example 默认值）：
 #   REALM_ADDRESS   对外地址（写入 auth 库 realmlist + 补丁包启动器.bat），如 play.example.com 或 1.2.3.4
-#   TCR_NS          镜像命名空间（默认 ccr.ccs.tencentyun.com/acok）
+#   IMAGE_NS        镜像命名空间（默认 ghcr.io/mrjg117）
 #   SOAP_PASSWORD   注册 SOAP 密码（需与 Cloudflare Worker 的 SOAP_PASSWORD 一致）
 #   WORK_DIR        部署目录（默认 /opt/azerothcore-ok）
 # ============================================================
@@ -40,7 +40,7 @@ curl -fsSL "https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/mast
 
 # 2) 用环境变量覆盖 .env（没传则保持 .env.example 默认值）
 [ -n "${REALM_ADDRESS:-}" ] && sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$REALM_ADDRESS|" .env
-[ -n "${TCR_NS:-}" ]        && sed -i "s|^TCR_NS=.*|TCR_NS=$TCR_NS|" .env
+[ -n "${IMAGE_NS:-}" ]      && sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$IMAGE_NS|" .env
 [ -n "${SOAP_PASSWORD:-}" ] && sed -i "s|^SOAP_PASSWORD=.*|SOAP_PASSWORD=$SOAP_PASSWORD|" .env
 
 # 3) 起服（务必先 pull，否则会触发本机编译）

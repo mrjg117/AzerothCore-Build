@@ -1,24 +1,24 @@
 # AzerothCore-OK —— 服务端覆盖配置（官方钦定唯一扩展点）
-# 只换镜像地址（我们的 TCR 构建产物），其余编排全部沿用官方 docker-compose.yml。
+# 只换镜像地址（我们的 ghcr.io 构建产物），其余编排全部沿用官方 docker-compose.yml。
 services:
   # 数据库用官方 mysql:8.4，不替换（官方即此镜像，无自建 db 镜像）
   ac-worldserver:
-    image: ${TCR_NS:-ccr.ccs.tencentyun.com/acok}/ac-wotlk-worldserver:latest
+    image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-wotlk-worldserver:latest
     environment:
       - REALM_ADDRESS=${REALM_ADDRESS}
     depends_on:
       ac-extra-config:
         condition: service_completed_successfully
   ac-authserver:
-    image: ${TCR_NS:-ccr.ccs.tencentyun.com/acok}/ac-wotlk-authserver:latest
+    image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-wotlk-authserver:latest
   ac-db-import:
-    image: ${TCR_NS:-ccr.ccs.tencentyun.com/acok}/ac-wotlk-db-import:latest
+    image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-wotlk-db-import:latest
   # 社区地图数据（ac-maps 镜像，替换官方 client-data）
   ac-client-data-init:
-    image: ${TCR_NS:-ccr.ccs.tencentyun.com/acok}/ac-maps:latest
+    image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-maps:latest
   # 自定义配置注入：把 worldserver.conf（启用 SOAP 建号通道）等写入 ./env/dist/etc
   ac-extra-config:
-    image: ${TCR_NS:-ccr.ccs.tencentyun.com/acok}/ac-extra-config:latest
+    image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-extra-config:latest
     environment:
       - SOAP_PASSWORD=${SOAP_PASSWORD}
     volumes:

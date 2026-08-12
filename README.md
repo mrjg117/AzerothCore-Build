@@ -47,8 +47,8 @@ AzerothCore-OK/
 │   ├── acok.sh              游戏服务端一行部署脚本（由 CF Worker 托管，页面"一键部署脚本"指向它）
 │   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
 ├── server/                    游戏服务端部署文件（被 acok.sh 拉取）
-│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 43 模组的 TCR 构建产物
-│   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / TCR_NS / SOAP_*）
+│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 43 模组的 ghcr.io 构建产物
+│   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / IMAGE_NS / SOAP_*）
 ```
 
 > 本仓库不提供"服务器端一键部署整包 zip"。提供 `deploy/acok.sh` 一行部署脚本（由 CF Worker 托管），运营方 `curl ... | bash` 即可起服。注册页与补丁统一由 Cloudflare Worker 分发。
@@ -108,7 +108,7 @@ npx wrangler deploy
 # 在你的服务器（有公网 IP、装好 Docker）终端运行：
 curl -fsSL https://<你的Worker域名>/acok.sh | bash
 # 脚本会：装 Docker → 拉官方 compose + 本仓 override/.env → pull && up -d → 自动建 webreg SOAP 账号 + 写入 realm 对外地址
-# 可选用环境变量预填：REALM_ADDRESS / TCR_NS / SOAP_PASSWORD（否则手动编辑 .env）
+# 可选用环境变量预填：REALM_ADDRESS / IMAGE_NS / SOAP_PASSWORD（否则手动编辑 .env）
 ```
 也可手动分步（等价于脚本做的事）：
 ```bash
@@ -134,7 +134,7 @@ docker compose exec ac-database mysql -uroot -p"$DOCKER_DB_ROOT_PASSWORD" acore_
 
 ## 维护
 
-- **镜像双推 CCR + DockerHub**：override 默认走 CCR；想换 DockerHub 改 override 的 image 前缀即可（override 在 `server/`，起服时由 acok.sh 拉取）。
+- **镜像单推 ghcr.io**：override 默认走 `ghcr.io/mrjg117`；换别的仓库改 override 的 `IMAGE_NS` 前缀即可（override 在 `server/`，起服时由 acok.sh 拉取）。
 - **加/换模组**：改 `config/modules.txt` → 手动跑 `build-core.yml`（CI 已挂 ccache 持久化，同模组集合下重编很快）。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
 - **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 服务端重新注入。
