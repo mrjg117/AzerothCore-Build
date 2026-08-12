@@ -14,7 +14,7 @@ permissions:
   packages: write
 
 env:
-  ACORE_REF: master
+  ACORE_REF: Playerbot
 
 jobs:
   build:
@@ -44,9 +44,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clone official azerothcore-wotlk @ ${{ env.ACORE_REF }}
+      - name: Clone Playerbot fork (mod-playerbots/azerothcore-wotlk) @ ${{ env.ACORE_REF }}
         run: |
-          git clone --depth 1 https://github.com/azerothcore/azerothcore-wotlk.git official
+          git clone --depth 1 https://github.com/mod-playerbots/azerothcore-wotlk.git official
           cd official
           git fetch --depth 1 origin "$ACORE_REF"
           git checkout "$ACORE_REF"
