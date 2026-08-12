@@ -65,19 +65,49 @@ jobs:
             git clone --depth 1 "$url" "modules/$name"
           done < ../acore-build-repo/config/modules.txt
 
-      - name: Apply build-patch (core + module source fixes before compile)
+      - name: Apply build-patch (per-module, auto-detected from build-patch/<module>/patches.list)
         run: |
           set -e
-          # 绝对路径：仓库 checkout 到 acore-build-repo/ 子目录，避免 cd 后相对路径错位
-          P="${{ github.workspace }}/acore-build-repo/build-patch"
-          echo "== core patch (autonomous-altbots 核心预编译语句) =="
-          ( cd official && git apply --3way --whitespace=nowarn "$P/aa_core.patch" || patch -p1 --fuzz=5 < "$P/aa_core.patch" )
-          echo "== playerbots patch (纳管小号始终满 AI + 跳过随机工会) =="
-          ( cd official/modules/mod-playerbots && git apply --3way --whitespace=nowarn "$P/aa_playerbots.patch" || patch -p1 --fuzz=5 < "$P/aa_playerbots.patch" )
-          echo "== warrior include patch (AuraEffect 头文件) =="
-          ( cd official/modules/mod-classic-warrior-additions && git apply --3way --whitespace=nowarn "$P/warrior_include.patch" || patch -p1 --fuzz=5 < "$P/warrior_include.patch" )
-          echo "== challenge-modes: OnPlayerResurrect 第3参数 bool -> bool& (核心基类签名漂移, 4 处) =="
-          ( cd official/modules/mod-challenge-modes && sed -i 's#bool /\*applySickness\*/) override#bool\& /\*applySickness\*/) override#' src/ChallengeModes.cpp && grep -c "bool& /\*applySickness\*/) override" src/ChallengeModes.cpp )
+          BP="${{ github.workspace }}/acore-build-repo/build-patch"
+          OFF="${{ github.workspace }}/acore-build-repo/official"
+          apply_one() {
+            local tgt="$1" moddir="$2" method="$3" file="$4"; shift 4; local extra="$*"
+            case "$method" in
+              git-apply)
+                # 统一 diff：优先 git apply --3way，失败回退 patch -p1 --fuzz=5
+                ( cd "$tgt" && git apply --3way --whitespace=nowarn "$moddir/$file" ) || ( cd "$tgt" && patch -p1 --fuzz=5 < "$moddir/$file" ) ;;
+              shell)
+                # 在目标目录执行脚本（sed 整文件替换等复杂操作）
+                ( cd "$tgt" && bash "$moddir/$file" ) ;;
+              copy)
+                # 用补丁目录里的文件覆盖目标：copy <src> <dst>
+                ( cd "$tgt" && cp "$moddir/$file" "$extra" ) ;;
+              *)
+                echo "!! unknown method '$method' for $file (in $name)"; return 1 ;;
+            esac
+          }
+          for moddir in "$BP"/*/; do
+            [ -d "$moddir" ] || continue
+            name=$(basename "$moddir")
+            # core 特例：补丁打到 official/ 根；其余打到 official/modules/<name>
+            if [ "$name" = "core" ]; then tgt="$OFF"; else tgt="$OFF/modules/$name"; fi
+            [ -d "$tgt" ] || { echo "!! target $tgt not found, skip $name"; continue; }
+            echo "== build-patch: $name -> $tgt =="
+            list="$moddir/patches.list"
+            if [ -f "$list" ]; then
+              while read -r method file extra; do
+                [ -z "$method" ] && continue
+                case "$method" in \#*) continue;; esac
+                apply_one "$tgt" "$moddir" "$method" "$file" "$extra"
+              done < "$list"
+            else
+              # 无列表：默认对该目录所有 *.patch 走 git-apply
+              for p in "$moddir"*.patch; do
+                [ -e "$p" ] || continue
+                ( cd "$tgt" && git apply --3way --whitespace=nowarn "$p" ) || ( cd "$tgt" && patch -p1 --fuzz=5 < "$p" )
+              done
+            fi
+          done
           echo "build-patch applied"
 
       - name: Build & push 4 official server targets (ghcr.io)

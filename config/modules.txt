@@ -14,7 +14,6 @@ https://github.com/Brytenwally/Random-Item-Enchants.git
 
 # ===== 硬依赖 mod-playerbots =====
 https://github.com/Gutwormy/mod-autonomous-altbots.git
-https://github.com/TopHatMan/mod-bot-inventory-master.git
 https://github.com/jrad7/mod-dungeon-clear.git
 https://github.com/barnaclebarry/mod-optimal-bot-raid.git
 https://github.com/DustinHendrickson/mod-player-bot-level-brackets.git
