@@ -79,25 +79,30 @@ jobs:
 
       - name: Prune old versions (keep latest 12)
         if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEEP: "12"
         run: |
+          set +e
           owner="${{ github.repository_owner }}"
-          otype=$(gh api "users/$owner" --jq '.type' 2>/dev/null || echo "User")
+          # 包名形如 owner/repo，斜杠需编码为 %2F（纯 bash，不依赖 python3）
+          enc() { local s="$1"; s="${s/\//%2F}"; printf '%s' "$s"; }
+          otype=$(gh api "users/$owner" --jq '.type' 2>/dev/null)
           if [ "$otype" = "Organization" ]; then base="orgs/$owner/packages/container"; else base="user/packages/container"; fi
           prune() {
-            local pkg="$1" enc ids n i vid
-            enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$pkg")
-            ids=$(gh api "$base/$enc/versions?per_page=100" --jq 'sort_by(.created_at)|reverse|.[].id' 2>/dev/null)
-            [ -z "$ids" ] && { echo "$pkg: skip (no versions)"; return; }
-            mapfile -t ids_arr <<< "$ids"
+            local pkg="$1" e ids ids_arr=() n i vid
+            e=$(enc "$pkg")
+            echo "pruning $pkg (enc=$e)"
+            ids=$(gh api "$base/$e/versions?per_page=100" --jq 'sort_by(.created_at)|reverse|.[].id' 2>/dev/null)
+            if [ -z "$ids" ]; then echo "  no versions, skip"; return 0; fi
+            while IFS= read -r line; do [ -n "$line" ] && ids_arr+=("$line"); done <<< "$ids"
             n=${#ids_arr[@]}
-            if [ "$n" -le "${KEEP}" ]; then echo "$pkg: $n <= ${KEEP}, keep"; return; fi
-            echo "$pkg: $n versions, deleting $((n-KEEP)) oldest"
+            if [ "$n" -le "${KEEP}" ]; then echo "  $n <= ${KEEP}, keep all"; return 0; fi
+            echo "  $n versions, deleting $((n-KEEP)) oldest"
             for ((i=KEEP; i<n; i++)); do
               vid="${ids_arr[i]}"
-              gh api -X DELETE "$base/$enc/versions/$vid" >/dev/null 2>&1 && echo "  deleted $vid" || echo "  FAILED $vid"
+              if gh api -X DELETE "$base/$e/versions/$vid" >/dev/null 2>&1; then echo "  deleted $vid"; else echo "  FAILED $vid"; fi
             done
           }
           prune "$owner/ac-maps"
