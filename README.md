@@ -5,7 +5,7 @@
 **核心原则：官方的东西一个字不改，只换两个端点，其余全部走"追加"。**
 
 - 编译位置：官方 CI → **GitHub Actions**
-- 镜像仓库：Docker Hub → **腾讯云 CCR + DockerHub 双推**
+- 镜像仓库：GitHub Container Registry（**ghcr.io/mrjg117**，CI 单推公开仓库）
 - 分发：玩家补丁 + 注册页 → **Cloudflare Worker（Static Assets）**
 - 定制扩展点：官方钦定的 `docker-compose.override.yml`（本仓库在 `server/` 下发，acok.sh 拉取）+ 配置注入卷（`cp -n` 不覆盖）
 
