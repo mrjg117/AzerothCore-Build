@@ -1,0 +1,28 @@
+name: keepalive
+
+on:
+  schedule:
+    # 每月 1 号、15 号 04:00 UTC（约每半月一次）。
+    # GitHub 规则：仓库 60 天无任何活动，所有 schedule 定时工作流会被自动停用。
+    # 本工作流定期推一个空提交，保持仓库活跃，防止 build-core/maps/config 被停。
+    - cron: '0 4 1,15 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push empty commit to keep repo active
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive — prevent scheduled workflows from being disabled after 60d inactivity"
+          git push

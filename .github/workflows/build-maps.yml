@@ -67,7 +67,10 @@ jobs:
           if [ -n "$DOCKERHUB_TOKEN" ]; then
             TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-maps:${{ steps.ver.outputs.version }},docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-maps:latest"
           fi
-          docker buildx build --tag "$TAGS" --push config/maps
+          BUILDX_TAGS=""
+          IFS=',' read -ra _arr <<< "$TAGS"
+          for _t in "${_arr[@]}"; do BUILDX_TAGS="$BUILDX_TAGS --tag $_t"; done
+          docker buildx build $BUILDX_TAGS --push config/maps
 
       - name: Cleanup extracted data (不落盘)
         if: always()

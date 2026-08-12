@@ -80,5 +80,8 @@ jobs:
             if [ -n "$DOCKERHUB_TOKEN" ]; then
               TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:$VERSION,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ac-wotlk-$t:latest"
             fi
-            docker buildx build $CACHE --target "$t" -f apps/docker/Dockerfile --build-arg CMODULES=static --tag "$TAGS" --push .
+            BUILDX_TAGS=""
+            IFS=',' read -ra _arr <<< "$TAGS"
+            for _t in "${_arr[@]}"; do BUILDX_TAGS="$BUILDX_TAGS --tag $_t"; done
+            docker buildx build $CACHE --target "$t" -f apps/docker/Dockerfile --build-arg CMODULES=static $BUILDX_TAGS --push .
           done
