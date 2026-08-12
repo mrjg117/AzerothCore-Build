@@ -11,9 +11,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  ACORE_REF: master
-
 jobs:
   build:
     runs-on: ubuntu-latest

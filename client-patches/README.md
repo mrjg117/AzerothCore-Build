@@ -16,10 +16,8 @@ client-patches/
 │   │       ├── patch-zhCN-Y.mpq  # Spell.dbc + SkillLineAbility.dbc
 │   │       └── patch-zhCN-Z.mpq  # SpellItemEnchantment.dbc
 │   └── addon/ItemAffixes/        # 该模组的客户端 AddOn
-├── guild-levels/                 # mod-guild-levels（仅 AddOn，无 MPQ）
-│   └── addon/GuildLevels/
-└── bot-inventory-master/         # mod-bot-inventory-master（仅 AddOn，无 MPQ）
-    └── addon/BotInventoryMasterUI/
+└── guild-levels/                 # mod-guild-levels（仅 AddOn，无 MPQ）
+    └── addon/GuildLevels/
 ```
 
 - **MPQ 单份**：中文客户端 locale 目录为 `Data/zhCN/`，故只放 `zhCN/` 一份
@@ -44,7 +42,6 @@ Data/zhCN/patch-zhCN-Y.mpq
 Data/zhCN/patch-zhCN-Z.mpq
 Interface/AddOns/ItemAffixes/...
 Interface/AddOns/GuildLevels/...
-Interface/AddOns/BotInventoryMasterUI/...
 ```
 
 > **启动器.bat**：打包时由 `make-archive.py` 按环境变量 `REALM_ADDRESS`（运营方在 `build.sh` 前设定，默认占位 `play.example.com`）写入服务器地址。玩家解压后双击即可，无需手动改 `realmlist.wtf`。

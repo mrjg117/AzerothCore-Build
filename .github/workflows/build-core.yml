@@ -65,10 +65,10 @@ jobs:
             git clone --depth 1 "$url" "modules/$name"
           done < ../acore-build-repo/config/modules.txt
 
-      - name: Apply build-patch (per-module, convention auto-detect)
+      - name: Apply build-patches (per-module, convention auto-detect)
         run: |
           set -e
-          BP="${{ github.workspace }}/acore-build-repo/build-patch"
+          BP="${{ github.workspace }}/acore-build-repo/build-patches"
           OFF="${{ github.workspace }}/acore-build-repo/official"
           for moddir in "$BP"/*/; do
             [ -d "$moddir" ] || continue
@@ -76,7 +76,7 @@ jobs:
             # core 特例：补丁打到 official/ 根；其余打到 official/modules/<name>
             if [ "$name" = "core" ]; then tgt="$OFF"; else tgt="$OFF/modules/$name"; fi
             [ -d "$tgt" ] || { echo "!! target $tgt not found, skip $name"; continue; }
-            echo "== build-patch: $name -> $tgt =="
+            echo "== build-patches: $name -> $tgt =="
             # 约定自动判断（无需 patches.list）：
             #   *.patch -> git apply (失败回退 patch -p1 --fuzz=5)
             #   *.sh    -> 在目标目录执行（sed / 复杂操作）
@@ -94,7 +94,7 @@ jobs:
               cp -r "$moddir/overlay/." "$tgt/"
             fi
           done
-          echo "build-patch applied"
+          echo "build-patches applied"
 
       - name: Build & push 4 official server targets (ghcr.io)
         run: |

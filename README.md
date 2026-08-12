@@ -13,13 +13,13 @@
 
 | 镜像 | 由谁构建 | 作用 |
 |---|---|---|
-| `ac-wotlk-worldserver` / `authserver` / `db-import` / `tools` | `build-core.yml` | 官方 4 个 server target（克隆官方 + 43 模组，`MODULES=static` 静态编入） |
+| `ac-wotlk-worldserver` / `authserver` / `db-import` / `tools` | `build-core.yml` | 官方 4 个 server target（克隆官方 + 42 模组，`MODULES=static` 静态编入） |
 | `ac-maps` | `build-maps.yml` | 社区地图源 `wowgaming/client-data@v20.0` 烤入，替换官方 `client-data`（部署机零提取） |
 | `ac-extra-config` | `build-config.yml` | 自定义 `.conf` 注入镜像（按模组分子目录） |
 | `azerothcore-ok`（Worker） | `build.sh` + `wrangler deploy` | Cloudflare Worker（Static Assets）：注册页 `index.html` + 补丁 `patches/` + `/api/register` 注册函数 |
 
 CI 工作流（均在 Actions 跑；默认手动 `workflow_dispatch`，可按需开启定时/路径触发）：
-- `build-core.yml`：手动打包（可选 日/周/月 定时）。克隆官方 + 43 模组，构建 4 个 server target，推 CCR(+DockerHub)。已挂 ccache 持久化。
+- `build-core.yml`：手动打包（可选 日/周/月 定时）。克隆官方 + 42 模组，构建 4 个 server target，推 ghcr.io（单推公开仓库）。已挂 ccache 持久化。
 - `build-maps.yml`：手动打包（可选 日/周/月 定时）。下载社区地图源烤入 `ac-maps`。
 - `build-config.yml`：手动打包 + 监控 `config/**` 变更自动打包。构建 `ac-extra-config`。
 
@@ -35,7 +35,7 @@ AzerothCore-OK/
 │   └── make-archive.py        把 client-patches/ 按 WoW 目录层级（Data/zhCN + Interface/AddOns）
 │                              打成 patches-client.zip（被 build.sh 调用）
 ├── config/
-│   ├── modules.txt            43 个模组 Git 地址清单（编译期克隆进官方 modules/，去 -master 后缀）
+│   ├── modules.txt            42 个模组 Git 地址清单（编译期克隆进官方 modules/，去 -master 后缀）
 │   ├── extra-config/          自定义配置注入镜像源（ac-extra-config）
 │   │   ├── Dockerfile / docker-entrypoint.sh
 │   │   └── confs/             各模组自定义 .conf（core / mod-playerbots / mod-item-affixes）
@@ -47,7 +47,7 @@ AzerothCore-OK/
 │   ├── acok.sh              游戏服务端一行部署脚本（由 CF Worker 托管，页面"一键部署脚本"指向它）
 │   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
 ├── server/                    游戏服务端部署文件（被 acok.sh 拉取）
-│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 43 模组的 ghcr.io 构建产物
+│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 42 模组的 ghcr.io 构建产物
 │   └── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / IMAGE_NS / SOAP_*）
 ```
 
@@ -109,7 +109,7 @@ npx wrangler deploy
 ```
 
 ### 二、游戏服务端（官方原生编排，deploy/acok.sh 一行部署）
-服务端镜像仍由本仓库 CI 构建并推到 CCR/DockerHub；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
+服务端镜像仍由本仓库 CI 构建并推到 ghcr.io；起服用官方 `docker-compose.yml` + 本仓 `server/docker-compose.override.yml`（仅换镜像地址）+ `server/.env.example`。运营方一行命令即可：
 ```bash
 # 在你的服务器（有公网 IP、装好 Docker）终端运行：
 curl -fsSL https://<你的Worker域名>/acok.sh | bash
