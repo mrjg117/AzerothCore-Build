@@ -76,6 +76,8 @@ jobs:
           ( cd official/modules/mod-playerbots && git apply --3way --whitespace=nowarn "$P/aa_playerbots.patch" || patch -p1 --fuzz=5 < "$P/aa_playerbots.patch" )
           echo "== warrior include patch (AuraEffect 头文件) =="
           ( cd official/modules/mod-classic-warrior-additions && git apply --3way --whitespace=nowarn "$P/warrior_include.patch" || patch -p1 --fuzz=5 < "$P/warrior_include.patch" )
+          echo "== challenge-modes: OnPlayerResurrect 第3参数 bool -> bool& (核心基类签名漂移, 4 处) =="
+          ( cd official/modules/mod-challenge-modes && sed -i 's#bool /\*applySickness\*/) override#bool\& /\*applySickness\*/) override#' src/ChallengeModes.cpp && grep -c "bool& /\*applySickness\*/) override" src/ChallengeModes.cpp )
           echo "build-patch applied"
 
       - name: Build & push 4 official server targets (ghcr.io)
