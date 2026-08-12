@@ -96,6 +96,16 @@ jobs:
           done
           echo "build-patches applied"
 
+      - name: Patch official Dockerfile - keep-going build (-k 0)
+        run: |
+          # 改官方 Dockerfile：给 cmake --build 追加 -k 0，让一次 run 暴露全部模组编译错误
+          # （ninja 默认遇首个错误即停，会一轮只报一个模组，陷入「修一层露一层」的打地鼠循环）。
+          # build 阶段有错仍返回非0 -> cmake --install 不执行 -> docker build 失败 -> 本次不推送镜像，
+          # 正好先收集全错误，再按「评估替代模组 -> 决策替换/打补丁」流程处置。
+          # 注：这是构建编排层面的改动，不属于 build-patches/core（那里只放真正的核心源码补丁）。
+          sed -i 's|\(cmake --build \. --config "\$CTYPE" -j \)\(.*\)\\$|\1\2 -k 0 \\|' official/apps/docker/Dockerfile
+          grep -q '\-k 0' official/apps/docker/Dockerfile && echo "Dockerfile: -k 0 applied" || echo "Dockerfile: -k 0 NOT applied (line pattern mismatch?)"
+
       - name: Build & push 4 official server targets (ghcr.io)
         run: |
           cd official
