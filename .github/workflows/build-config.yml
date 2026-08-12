@@ -54,3 +54,28 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/user/packages/container/${{ github.repository_owner }}%2Fac-extra-config/visibility" \
             -d '{"visibility":"public"}'
+
+      - name: Prune old versions (keep latest 12)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP: "12"
+        run: |
+          owner="${{ github.repository_owner }}"
+          otype=$(gh api "users/$owner" --jq '.type' 2>/dev/null || echo "User")
+          if [ "$otype" = "Organization" ]; then base="orgs/$owner/packages/container"; else base="user/packages/container"; fi
+          prune() {
+            local pkg="$1" enc ids n i vid
+            enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$pkg")
+            ids=$(gh api "$base/$enc/versions?per_page=100" --jq 'sort_by(.created_at)|reverse|.[].id' 2>/dev/null)
+            [ -z "$ids" ] && { echo "$pkg: skip (no versions)"; return; }
+            mapfile -t ids_arr <<< "$ids"
+            n=${#ids_arr[@]}
+            if [ "$n" -le "${KEEP}" ]; then echo "$pkg: $n <= ${KEEP}, keep"; return; fi
+            echo "$pkg: $n versions, deleting $((n-KEEP)) oldest"
+            for ((i=KEEP; i<n; i++)); do
+              vid="${ids_arr[i]}"
+              gh api -X DELETE "$base/$enc/versions/$vid" >/dev/null 2>&1 && echo "  deleted $vid" || echo "  FAILED $vid"
+            done
+          }
+          prune "$owner/ac-extra-config"
