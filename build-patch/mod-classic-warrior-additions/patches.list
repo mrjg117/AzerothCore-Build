@@ -1,2 +1,0 @@
-# mod-classic-warrior-additions 补丁（打到 official/modules/mod-classic-warrior-additions）。
-git-apply aura_effect_include.patch

@@ -1,6 +1,0 @@
-# 核心级补丁（打到 official/ 根）。方法说明见各模组目录同款 patches.list。
-# 格式：<method> <file> [extra]
-#   git-apply  统一 diff，优先 git apply --3way，失败回退 patch -p1 --fuzz=5
-#   shell      在目标目录执行该脚本（适合 sed 整文件替换等复杂操作）
-#   copy       <src> <dst>  用补丁目录里的文件覆盖目标目录的 dst
-git-apply aa_char_settings_source.patch

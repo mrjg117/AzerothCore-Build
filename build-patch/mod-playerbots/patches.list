@@ -1,2 +1,0 @@
-# mod-playerbots 补丁（打到 official/modules/mod-playerbots）。
-git-apply aa_autonomous_always_active.patch

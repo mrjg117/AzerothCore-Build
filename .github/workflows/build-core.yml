@@ -65,27 +65,11 @@ jobs:
             git clone --depth 1 "$url" "modules/$name"
           done < ../acore-build-repo/config/modules.txt
 
-      - name: Apply build-patch (per-module, auto-detected from build-patch/<module>/patches.list)
+      - name: Apply build-patch (per-module, convention auto-detect)
         run: |
           set -e
           BP="${{ github.workspace }}/acore-build-repo/build-patch"
           OFF="${{ github.workspace }}/acore-build-repo/official"
-          apply_one() {
-            local tgt="$1" moddir="$2" method="$3" file="$4"; shift 4; local extra="$*"
-            case "$method" in
-              git-apply)
-                # 统一 diff：优先 git apply --3way，失败回退 patch -p1 --fuzz=5
-                ( cd "$tgt" && git apply --3way --whitespace=nowarn "$moddir/$file" ) || ( cd "$tgt" && patch -p1 --fuzz=5 < "$moddir/$file" ) ;;
-              shell)
-                # 在目标目录执行脚本（sed 整文件替换等复杂操作）
-                ( cd "$tgt" && bash "$moddir/$file" ) ;;
-              copy)
-                # 用补丁目录里的文件覆盖目标：copy <src> <dst>
-                ( cd "$tgt" && cp "$moddir/$file" "$extra" ) ;;
-              *)
-                echo "!! unknown method '$method' for $file (in $name)"; return 1 ;;
-            esac
-          }
           for moddir in "$BP"/*/; do
             [ -d "$moddir" ] || continue
             name=$(basename "$moddir")
@@ -93,19 +77,21 @@ jobs:
             if [ "$name" = "core" ]; then tgt="$OFF"; else tgt="$OFF/modules/$name"; fi
             [ -d "$tgt" ] || { echo "!! target $tgt not found, skip $name"; continue; }
             echo "== build-patch: $name -> $tgt =="
-            list="$moddir/patches.list"
-            if [ -f "$list" ]; then
-              while read -r method file extra; do
-                [ -z "$method" ] && continue
-                case "$method" in \#*) continue;; esac
-                apply_one "$tgt" "$moddir" "$method" "$file" "$extra"
-              done < "$list"
-            else
-              # 无列表：默认对该目录所有 *.patch 走 git-apply
-              for p in "$moddir"*.patch; do
-                [ -e "$p" ] || continue
-                ( cd "$tgt" && git apply --3way --whitespace=nowarn "$p" ) || ( cd "$tgt" && patch -p1 --fuzz=5 < "$p" )
-              done
+            # 约定自动判断（无需 patches.list）：
+            #   *.patch -> git apply (失败回退 patch -p1 --fuzz=5)
+            #   *.sh    -> 在目标目录执行（sed / 复杂操作）
+            #   overlay/-> 整目录覆盖到目标（备用）
+            for p in $(ls "$moddir"*.patch 2>/dev/null | sort); do
+              echo "  git-apply: $(basename "$p")"
+              ( cd "$tgt" && git apply --3way --whitespace=nowarn "$p" ) || ( cd "$tgt" && patch -p1 --fuzz=5 < "$p" )
+            done
+            for s in $(ls "$moddir"*.sh 2>/dev/null | sort); do
+              echo "  shell: $(basename "$s")"
+              ( cd "$tgt" && bash "$s" )
+            done
+            if [ -d "$moddir/overlay" ]; then
+              echo "  overlay: copy $moddir/overlay -> $tgt"
+              cp -r "$moddir/overlay/." "$tgt/"
             fi
           done
           echo "build-patch applied"
