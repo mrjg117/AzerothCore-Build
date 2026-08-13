@@ -2,10 +2,6 @@ name: build-config
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, master]
-    paths:
-      - "config/**"
 
 permissions:
   contents: read

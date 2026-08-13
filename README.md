@@ -13,15 +13,15 @@
 
 | 镜像 | 由谁构建 | 作用 |
 |---|---|---|
-| `ac-wotlk-worldserver` / `authserver` / `db-import` / `tools` | `build-core.yml` | 官方 4 个 server target（克隆官方 + 42 模组，`MODULES=static` 静态编入） |
+| `ac-wotlk-worldserver` / `authserver` / `db-import` / `tools` | `build-core.yml` | 官方 4 个 server target（克隆官方 + 40 模组，`MODULES=static` 静态编入） |
 | `ac-maps` | `build-maps.yml` | 社区地图源 `wowgaming/client-data@v20.0` 烤入，替换官方 `client-data`（部署机零提取） |
-| `ac-extra-config` | `build-config.yml` | 自定义 `.conf` 注入镜像（按模组分子目录） |
+| `ac-extra-config` | `build-config.yml`（仅手动 `workflow_dispatch`） | 自定义 `.conf` 注入镜像（按模组分子目录） |
 | `azerothcore-ok`（Worker） | `build.sh` + `wrangler deploy` | Cloudflare Worker（Static Assets）：注册页 `index.html` + 补丁 `patches/` + `/api/register` 注册函数 |
 
 CI 工作流（均在 Actions 跑；默认手动 `workflow_dispatch`，可按需开启定时/路径触发）：
-- `build-core.yml`：手动打包（可选 日/周/月 定时）。克隆官方 + 42 模组，构建 4 个 server target，推 ghcr.io（单推公开仓库）。已挂 ccache 持久化。
+- `build-core.yml`：手动打包（可选 日/周/月 定时）。克隆官方 + 40 模组，构建 4 个 server target，推 ghcr.io（单推公开仓库）。已挂 ccache 持久化。
 - `build-maps.yml`：手动打包（可选 日/周/月 定时）。下载社区地图源烤入 `ac-maps`。
-- `build-config.yml`：手动打包 + 监控 `config/**` 变更自动打包。构建 `ac-extra-config`。
+- `build-config.yml`：仅手动打包（`workflow_dispatch`），**不再**监控 `config/**` 自动打包。构建 `ac-extra-config`。
 
 ## 目录结构
 
@@ -35,7 +35,7 @@ AzerothCore-OK/
 │   └── make-archive.py        把 client-patches/ 按 WoW 目录层级（Data/zhCN + Interface/AddOns）
 │                              打成 patches-client.zip（被 build.sh 调用）
 ├── config/
-│   ├── modules.txt            42 个模组 Git 地址清单（编译期克隆进官方 modules/，去 -master 后缀）
+│   ├── modules.txt            40 个模组 Git 地址清单（编译期克隆进官方 modules/，去 -master 后缀）
 │   ├── extra-config/          自定义配置注入镜像源（ac-extra-config）
 │   │   ├── Dockerfile / docker-entrypoint.sh
 │   │   └── confs/             各模组自定义 .conf（core / mod-playerbots / mod-item-affixes）
@@ -45,7 +45,7 @@ AzerothCore-OK/
 │   ├── worker.js              Worker 脚本：处理 /api/register（SOAP 调 worldserver 建号）+ 回退静态资源（频率限制交给 Cloudflare WAF）
 │   ├── wrangler.toml          Worker 配置（Static Assets 目录 + WORLD_HOST/启用/SOAP 变量）
 │   ├── acok.sh              游戏服务端一行部署脚本（由 CF Worker 托管，compose/env 同源拉取）
-│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 42 模组的 ghcr.io 构建产物
+│   ├── docker-compose.override.yml  官方钦定扩展点：仅把镜像换成带 40 模组的 ghcr.io 构建产物
 │   ├── .env.example           服务端部署变量样例（DOCKER_DB_ROOT_PASSWORD / REALM_ADDRESS / IMAGE_NS / SOAP_*）
 │   └── （以下为构建产物，不进库）patches/*（patches-client.zip 或分卷 + patches-manifest.txt + 启动器.bat）
 ```
@@ -142,7 +142,7 @@ docker compose exec ac-database mysql -uroot -p"$DOCKER_DB_ROOT_PASSWORD" acore_
 - **镜像单推 ghcr.io**：override 默认走 `ghcr.io/mrjg117`；换别的仓库改 override 的 `IMAGE_NS` 前缀即可（override 随 `deploy/` 由 CF Worker 托管，起服时由 acok.sh 同源拉取）。
 - **加/换模组**：改 `config/modules.txt` → 手动跑 `build-core.yml`（CI 已挂 ccache 持久化，同模组集合下重编很快）。
 - **改地图数据**：改 `config/maps/**` 或 `build-maps.yml` 的 `CLIENT_DATA_REF` → 重新跑 `build-maps.yml`。
-- **改自定义配置**：改 `config/extra-config/confs/*` → 重新跑 `build-config.yml` → 服务端重新注入。
+- **改自定义配置**：改 `config/extra-config/confs/*` → 手动跑 `build-config.yml` → 服务端重新注入。（配置镜像已改为仅手动构建，不再随 `config/**` 推送自动打包）
 - **改客户端补丁**：改 `client-patches/*` 或 `client-patches/addons.txt` → 重新跑 `build.sh` / `wrangler deploy`。
 - **同步官方文件**：AC 更新后重新跑对应 CI 工作流。
 
