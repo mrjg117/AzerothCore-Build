@@ -13,6 +13,6 @@ assets = { directory = "./", not_found_handling = "none" }
 
 # 后端 worldserver SOAP 配置（明文变量放这里；密码用 secret）
 [vars]
-WORLD_HOST = ""        # 部署机（worldserver）的公网域名或 IP
+WORLD_HOST = "YOUR_WORLD_HOST_HERE"   # 部署机（worldserver）的公网域名或 IP；部署前必填，留占位值会被 Worker 拒绝（见 worker.js 的 WORLD_HOST 校验）
 WORLD_PORT = "7878"   # SOAP 端口，固定
 SOAP_LOGIN = "webreg" # SOAP 账号，与 worldserver 一致

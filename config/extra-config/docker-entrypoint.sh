@@ -15,7 +15,9 @@ mkdir -p /out
 while IFS= read -r f; do
   [ -f "$f" ] || continue
   name=$(basename "$f")
-  sed "s/__SOAP_PASSWORD__/$SOAP_PASSWORD/g" "$f" > "/out/$name"
+  # 用 awk 做字面替换（split 按占位符切分 + 直接读 ENVIRON）：不做正则/转义解释，
+  # 密码含 & / \ 等字符也不会损坏配置（规避 sed 的 & 替换陷阱与转义遗漏）。
+  awk 'BEGIN{ph="__SOAP_PASSWORD__"; pw=ENVIRON["SOAP_PASSWORD"]} { n=split($0,a,ph); s=a[1]; for(i=2;i<=n;i++) s=s pw a[i]; print s }' "$f" > "/out/$name"
 done < <(find /confs -type f -name '*.conf')
 echo "Injected configs into /out:"
 ls -1 /out

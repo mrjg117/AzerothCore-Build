@@ -36,7 +36,7 @@ jobs:
           # 关键：key 含 ACORE_REF，使 stock(master) 与 Playerbot 分支的 ccache 缓存互相隔离，
           # 避免切换核心后误用对方符号集的缓存导致命中混乱。mode=max 已把官方 Dockerfile 的
           # /ccache 挂载一并导出，故 ccache 跨 run 持久化——改单个模组重跑时其余 .o 直接命中。
-          key: acore-buildx-${{ env.ACORE_REF }}-${{ hashFiles('config/modules.txt') }}
+          key: acore-buildx-${{ env.ACORE_REF }}-${{ hashFiles('acore-build-repo/config/modules.txt') }}
           restore-keys: |
             acore-buildx-${{ env.ACORE_REF }}-
 
@@ -54,7 +54,7 @@ jobs:
           git fetch --depth 1 origin "$ACORE_REF"
           git checkout "$ACORE_REF"
 
-      - name: Clone 43 modules (strip -master suffix)
+      - name: Clone 40 modules (strip -master suffix)
         run: |
           cd official
           while IFS= read -r url; do

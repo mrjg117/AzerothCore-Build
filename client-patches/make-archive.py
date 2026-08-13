@@ -103,7 +103,6 @@ def build_readme():
         "包含的模组（源码按模组分目录存放于 client-patches/）：\n"
         "  - mod-item-affixes           （装备词缀；需 MPQ 补丁）\n"
         "  - mod-guild-levels           （公会等级；仅 AddOn）\n"
-        "  - mod-bot-inventory-master   （机器人背包；仅 AddOn）\n"
         "\n"
     )
 
