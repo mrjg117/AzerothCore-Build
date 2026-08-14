@@ -1,0 +1,150 @@
+:root{
+  --bg:#0d0f14; --panel:#161a22; --panel2:#1d222c; --line:#2c3340;
+  --gold:#e8c372; --gold2:#f4d79a; --text:#d7dbe2; --muted:#8b93a3;
+  --green:#5ad65a; --red:#e2554f; --blue:#5aa9e2; --accent:#caa24a;
+  --icon:48px;          /* 天赋图标尺寸 */
+  --step:58px;          /* 网格步距（相邻图标中心距）= 图标 + 间隙 */
+  --pad-x:18px;         /* 天赋页左右留白 */
+  --pad-y:18px;         /* 天赋页上下留白 */
+  --tree-w:270px;       /* 单棵天赋树/雕文页统一宽度（由 JS 按实际列数覆盖） */
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,sans-serif;font-size:14px}
+a{color:var(--blue);text-decoration:none}
+
+.topbar{display:flex;justify-content:center;padding:10px 16px;
+  background:linear-gradient(180deg,#1b2029,#11141b);border-bottom:2px solid var(--accent);
+  position:sticky;top:0;z-index:50}
+.topbar-inner{max-width:1080px;width:100%;margin:0 auto;display:flex;align-items:center;
+  justify-content:space-between;gap:32px}
+.brand{display:flex;flex-direction:column;line-height:1.1;flex:none}
+.brand-main{font-size:18px;font-weight:800;color:var(--gold);letter-spacing:1px}
+.brand-sub{font-size:11px;color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:flex-end}
+.ctl{display:flex;flex-direction:column;font-size:11px;color:var(--muted)}
+.ctl label{margin-bottom:2px}
+select,input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--line);
+  border-radius:5px;padding:5px 7px;font-size:13px}
+#levelSel{min-width:64px}
+#maxPts{width:72px}
+.points-box{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:6px;padding:6px 12px;font-size:13px}
+.points-box b{color:var(--gold2)}
+.p-left b{color:var(--green)}
+.btn{background:linear-gradient(180deg,#3a3320,#241f14);color:var(--gold2);border:1px solid var(--accent);
+  border-radius:5px;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:600}
+.btn:hover{filter:brightness(1.15)}
+.btn.primary{background:linear-gradient(180deg,#6a5526,#3c3013);color:#fff}
+.btn-select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;padding:7px 8px;cursor:pointer;max-width:180px}
+
+.classbar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.classbtn{display:flex;align-items:center;justify-content:center;gap:7px;width:112px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:6px;padding:5px 6px;cursor:pointer;color:var(--text);font-weight:600}
+.classbtn img{width:30px;height:30px;border-radius:4px}
+.classbtn:hover{border-color:var(--accent)}
+.classbtn.active{background:linear-gradient(180deg,#3a3320,#241f14);border-color:var(--gold);color:var(--gold2)}
+
+/* 主布局：3 天赋树 + 1 雕文页，4 等分网格，总宽限制为与职业按钮栏相当并居中 */
+.layout{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:1200px;margin:0 auto;padding:14px 16px;align-items:start}
+.tree{position:relative;background:#0b0d12;border:1px solid var(--line);
+  border-radius:8px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+.tree-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.18;pointer-events:none}
+.tree-head{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 12px;background:linear-gradient(180deg,rgba(0,0,0,.85),rgba(0,0,0,.25));border-bottom:1px solid var(--line)}
+.tree-name{font-weight:800;color:var(--gold);font-size:15px}
+.tree-head-right{display:flex;align-items:center;gap:10px}
+.tree-pts{font-size:13px;color:var(--text)}
+.tree-pts b{color:var(--gold2)}
+.tree-reset{background:linear-gradient(180deg,#3a2230,#241318);color:#f0b0a8;border:1px solid #7a3a3a;
+  border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:600;flex:none}
+.tree-reset:hover{filter:brightness(1.18)}
+.tree-body{position:relative;z-index:2;margin:0 auto}
+
+.talent{position:absolute;width:var(--icon);height:var(--icon);transform:translate(-50%,-50%);
+  cursor:pointer;user-select:none}
+.talent .icon{width:var(--icon);height:var(--icon);border:2px solid #555;border-radius:6px;background:#15181f;
+  background-repeat:no-repeat;background-size:auto;display:block;transition:filter .1s,box-shadow .1s}
+/* 点数徽章钉死在图标右下角（绝对定位到 .talent 右下，不居中、不贴边溢出） */
+.talent .rank{position:absolute;left:auto;top:auto;right:4px;bottom:4px;background:#000;border:1px solid var(--accent);
+  color:var(--gold2);font-size:11px;font-weight:700;border-radius:7px;padding:0 5px;min-width:18px;line-height:16px;text-align:center;z-index:4}
+.talent.avail .icon{border-color:var(--green);box-shadow:0 0 7px rgba(90,214,90,.5)}
+.talent.maxed .icon{border-color:var(--gold);box-shadow:0 0 9px rgba(232,195,114,.55)}
+.talent.locked .icon{filter:grayscale(1) brightness(.5)}
+.talent.spent:not(.locked) .icon{filter:none}
+.talent:hover .icon{box-shadow:0 0 12px rgba(232,195,114,.9)}
+.talent.dep .icon{outline:2px solid var(--red)}
+
+/* 状态提示（固定高度占位，永远预留空间，文字出现时不会改变布局，不挤压天赋栏） */
+/* 状态提示：复用天赋栏的 4 列网格 + 同 1200px 居中，文字只覆盖左 3 列（即 3 棵天赋树的宽度），
+   整页（与天赋栏同为 1200px 居中容器）水平居中，文字在 30px 空位内垂直居中 */
+.status-banner{display:flex;justify-content:center;align-items:center;height:30px;overflow:hidden;
+  max-width:1200px;margin:2px auto 0;padding:0 16px;font-size:13px;color:var(--gold2);text-align:center;pointer-events:none}
+.status-banner .msg{background:rgba(40,30,12,.92);border:1px solid var(--accent);
+  border-radius:6px;padding:5px 14px}
+
+/* 雕文面板：与单棵天赋树同高，整栏禁止滚动，内部用 flex 把两组六框均分填满 */
+.glyph-panel{display:flex;flex-direction:column;gap:8px;height:var(--tree-h,716px);overflow:hidden}
+.glyph-group{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;
+  flex:1;min-height:0;display:flex;flex-direction:column;gap:6px}
+.glyph-group .ghead{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex:none}
+.glyph-group h3{margin:0;font-size:14px;color:var(--gold);white-space:nowrap}
+.glyph-group .ghint{font-size:10.5px;color:var(--muted);margin:0;text-align:right;white-space:nowrap}
+/* 雕文框：选择+展示一体（未选择时提示）；点击展开选项面板；flex:1 均分填满、不随内容撑高、不导致整栏滚动 */
+.glyph-slot{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+  padding:6px 9px;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:5px;overflow:hidden;cursor:pointer}
+.glyph-slot:hover{border-color:var(--accent)}
+.glyph-slot.active{border-color:var(--gold)}
+.glyph-slot.locked{justify-content:center;align-items:center;border-style:dashed;cursor:default}
+.glyph-slot.locked:hover{border-color:var(--line)}
+.glyph-slot .glock{font-size:12px;color:var(--red);text-align:center}
+/* 标题：自然高度，整块垂直居中时位于上方 */
+.glyph-slot .gname{font-size:13px;font-weight:700;color:var(--muted);flex:none;text-align:left;height:18px;display:flex;align-items:center;line-height:1.4}
+.glyph-slot .gname.on{color:var(--gold2)}
+/* 描述：自然高度、最多 3 行（超出加 .small 缩字体在 4 行内完整显示）；整块垂直居中时位于标题下方 */
+.glyph-slot .gdesc{font-size:12px;line-height:1.5;color:var(--text);flex:none;text-align:left;height:54px;
+  display:flex;align-items:flex-start;overflow:hidden;word-break:break-word}
+.glyph-slot .gdesc.muted{color:var(--muted);font-size:11px}
+.glyph-slot .gdesc.small{font-size:10px;line-height:13.5px}
+
+/* 雕文选项浮层（自定义弹层，非半透明遮罩）：固定定位避免被面板 overflow:hidden 裁切；
+   宽≈雕文面板宽、高≈雕文面板高（差不多盖住 6 个雕文框），超出则内部滚动；按槽位位置上/下/中弹 */
+.glyph-pop{position:fixed;z-index:300;background:var(--panel);border:1px solid var(--accent);
+  border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.6);overflow-y:auto;padding:6px}
+.glyph-pop[hidden]{display:none}
+.glyph-opt{display:block;width:100%;text-align:left;background:transparent;color:var(--text);
+  border:none;border-bottom:1px solid var(--line);cursor:pointer;padding:8px 10px;font:inherit}
+.glyph-opt:last-child{border-bottom:none}
+.glyph-opt:hover{background:var(--panel2)}
+.glyph-opt.chosen{background:rgba(232,195,114,.12)}
+.glyph-opt .go-name{font-size:13px;font-weight:700;color:var(--gold2);line-height:1.4}
+.glyph-opt .go-desc{font-size:12px;line-height:1.5;color:var(--text);margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.glyph-opt.clear .go-name{color:var(--muted);font-weight:600}
+
+.tooltip{position:fixed;z-index:200;max-width:320px;background:rgba(12,14,20,.97);border:1px solid var(--accent);
+  border-radius:8px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.6);pointer-events:none;font-size:13px;line-height:1.5}
+.tooltip h4{margin:0 0 4px;color:var(--gold2);font-size:15px}
+.tooltip .t-rank{color:var(--green);font-weight:700;margin-bottom:6px}
+.tooltip .t-req{color:var(--red);margin-top:6px;font-size:12px}
+.tooltip .t-desc{color:var(--text)}
+.tooltip .t-next{color:var(--gold);margin-top:4px}
+
+.tooltip[hidden]{display:none}
+
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:300}
+.modal[hidden]{display:none}
+.modal-box{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:20px;width:340px}
+.modal-box h3{margin:0 0 12px;color:var(--gold)}
+.modal-box input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:5px;padding:8px;font-size:14px;margin-bottom:14px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+
+@media(max-width:1000px){
+  .layout{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:560px){
+  .layout{grid-template-columns:1fr}
+  .topbar-inner{flex-wrap:wrap;justify-content:center;gap:12px}
+  .controls{gap:7px;justify-content:center}
+}

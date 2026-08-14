@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>巫妖王之怒 3.3.5 天赋模拟器</title>
+<link rel="stylesheet" href="assets/css/style.css?v=20260813b">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+  <div class="brand">
+    <span class="brand-main">巫妖王之怒</span>
+    <span class="brand-sub">3.3.5a 天赋模拟器</span>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <label for="levelSel">等级</label>
+      <select id="levelSel" title="选择角色等级：自动计算可用天赋点，并解锁对应雕文槽"></select>
+    </div>
+    <div class="ctl">
+      <label for="maxPts">最大天赋点</label>
+      <input id="maxPts" type="number" min="0" max="200" step="1" value="71" title="可自定义最大天赋点（如私服特殊规则）">
+    </div>
+    <div class="points-box">
+      <span class="p-used">已用 <b id="usedPts">0</b></span>
+      <span class="p-sep">/</span>
+      <span class="p-max">最大 <b id="maxPtsLbl">71</b></span>
+      <span class="p-left">剩余 <b id="leftPts">71</b></span>
+    </div>
+    <button id="resetBtn" class="btn" title="清空当前职业天赋与雕文">重置</button>
+    <button id="shareBtn" class="btn primary" title="生成可分享的链接（含天赋与雕文）">复制分享链接</button>
+  </div>
+  </div>
+</header>
+
+<nav id="classBar" class="classbar" aria-label="职业选择"></nav>
+
+<div id="statusBanner" class="status-banner"></div>
+
+<div class="layout" id="layout">
+  <section id="glyphPanel" class="glyph-panel"></section>
+</div>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/glyphs.js"></script>
+<script src="assets/js/glyph_cn.js"></script>
+<script src="assets/js/glyph_desc.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
