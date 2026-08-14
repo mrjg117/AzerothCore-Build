@@ -8,22 +8,33 @@
 <link rel="stylesheet" href="./talent-sim/assets/css/style.css">
 <style>
   /* ===== 统一壳层（标签导航 / 注册面板）===== */
-  .tabbar{display:flex;gap:6px;align-items:center}
+  /* 顶栏三区：brand 左 | tabbar 居中(flex:1) | controls 右(flex:none)
+     控件用 visibility 占位（仍 display:flex）而非 display:none，避免切换时顶栏高度/标签位置抖动 */
+  .topbar-inner{display:flex;align-items:center;gap:14px}
+  .tabbar{flex:1;display:flex;justify-content:center;gap:6px;align-items:center}
+  .controls{flex:none}
   .tab{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;
        padding:7px 16px;cursor:pointer;font-size:14px;font-weight:600}
   .tab:hover{border-color:var(--accent)}
   .tab.active{background:linear-gradient(180deg,#3a3320,#241f14);border-color:var(--gold);color:var(--gold2)}
+  .controls[hidden]{display:flex;visibility:hidden;pointer-events:none}
+  /* 窄屏：标签不再占满，整体居中换行 */
+  @media (max-width:780px){
+    .topbar-inner{flex-wrap:wrap;justify-content:center;gap:10px}
+    .tabbar{flex:none}
+    .controls{flex:none;width:100%;justify-content:center}
+  }
 
-  /* .controls 自带 display:flex 会盖过 [hidden]，必须显式兜底，否则「项目及注册」标签下控件会漏出 */
-  .controls[hidden]{display:none}
-
-  #panel-home{max-width:760px;margin:0 auto;padding:36px 18px 70px}
+  #panel-home{max-width:760px;margin:0 auto;padding:24px 18px 70px}
+  #panel-sim{padding:24px 0 70px}
   .page-head{margin-bottom:22px}
   .page-head .sub{color:var(--gold);margin:0 0 6px;font-size:15px}
   .page-head .meta-line{color:var(--muted);font-size:13px;margin:0}
   .page-head a{color:var(--blue)}
 
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:18px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:18px}
+  /* 弱化模拟器职业选择栏的「第二 header」观感：去满宽深条，使其融入页面而非独立头 */
+  #panel-sim .classbar{background:transparent;border-bottom:none;padding-top:0;padding-bottom:14px}
   .card>h2{font-size:17px;margin:0 0 14px;color:var(--gold)}
   .card p.hint{color:var(--muted);font-size:13px;margin:0 0 12px}
 
@@ -187,6 +198,7 @@
       tab.classList.add('active');
       if (tab.getAttribute('data-tab') === 'sim') activateSim();
       else activateHome();
+      window.scrollTo(0, 0);   // 切换标签回到顶部，避免落中段产生「位移」
     });
   });
 
