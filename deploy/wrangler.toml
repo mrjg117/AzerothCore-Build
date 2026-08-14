@@ -9,7 +9,7 @@
 #   - 游戏服 acok.sh 运行时仍需手动输入同一对值（SOAP_LOGIN 默认 ACOK、SOAP_PASSWORD 无默认值）。
 #   - keep_vars = true：防御性保护你在 CF 后台手设的变量不被部署覆盖。
 
-name = "azerothcore-ok"
+name = "acok"
 main = "worker.js"
 compatibility_date = "2025-04-01"
 
@@ -21,9 +21,9 @@ assets = { directory = "./", not_found_handling = "none" }
 keep_vars = true
 
 [vars]
-WORLD_HOST = "play.example.com"                                   # 游戏服公网域名/IP（玩家连 + Worker 连 SOAP 用）
+WORLD_HOST = "yy.zhbq.eu.org"                                   # 游戏服公网域名/IP（玩家连 + Worker 连 SOAP 用）
 WORLD_PORT = "7878"                                               # SOAP 端口
 IMAGE_NS   = "ghcr.io/mrjg117"                                    # 镜像命名空间
 # SOAP_LOGIN = "ACOK"                                               # 已注释：请在 CF 后台 Variables & Secrets 手动设置
-# SOAP_PASSWORD = "AUTOGENERATE"                                   # 已注释：部署时由 build.sh 检测后台，有则沿用、无则生成并写入
-WORKER_BASE = "https://azerothcore-ok.YOUR_SUBDOMAIN.workers.dev" # 本 Worker 地址（acok.sh 同源拉文件用）；自定义域名就填自定义域名
+# SOAP_PASSWORD = "ACOK"                                            # 已注释：请在 CF 后台 Variables & Secrets 手动设置
+WORKER_BASE = "https://acok.zhbq.eu.org" # 本 Worker 地址（acok.sh 同源拉文件用）；自定义域名就填自定义域名
