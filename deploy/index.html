@@ -354,23 +354,15 @@
     e.preventDefault(); copyText(deployCmd, this);
   });
 
-  // ===== 补丁分卷列表 + 下载全部合并 =====
+  // ===== 补丁下载：按「是否有分卷」自适应 =====
+  //  - 无分卷（manifest 仅 1 个文件）：隐藏分卷下载栏，点击下载=直接下载该补丁 zip
+  //  - 有分卷（>1 个文件）：显示分卷下载栏（每个分卷独立下载），
+  //                          点击下载=自动合并下载全部分卷为一个 zip
   var patchParts = [];
-  fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
-    patchParts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
-      .map(function (l) { return l.slice(5).split(' ')[0]; });
-    var box = document.getElementById('patchParts');
-    if (!box) return;
-    if (!patchParts.length) { box.innerHTML = '<div style="color:var(--muted);font-size:13px;">暂无可下载的补丁分卷</div>'; return; }
-    box.innerHTML = patchParts.map(function (p, i) {
-      return '<div class="file"><div class="meta"><div class="name">分卷' + (i + 1) + '：' + p +
-        '</div></div>' +
-        '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
-    }).join('');
-  }).catch(function () {});
+  var dlAll = document.getElementById('dlAll');
 
   function downloadAll() {
-    if (!patchParts.length) { alert('暂无可下载的补丁分卷'); return; }
+    if (!patchParts.length) { alert('暂无可下载的补丁'); return; }
     Promise.all(patchParts.map(function (p) {
       return fetch('./patches/' + p).then(function (r) { return r.arrayBuffer(); });
     })).then(function (bufs) {
@@ -382,9 +374,36 @@
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
     }).catch(function () { alert('合并下载失败，请改用分卷单独下载'); });
   }
-  document.getElementById('dlAll').addEventListener('click', function (e) {
-    e.preventDefault(); downloadAll();
-  });
+
+  fetch('./patches/patches-manifest.txt').then(function (r) { return r.text(); }).then(function (t) {
+    patchParts = t.split('\n').filter(function (l) { return l.indexOf('file=') === 0; })
+      .map(function (l) { return l.slice(5).split(' ')[0]; });
+    var box = document.getElementById('patchParts');
+    if (!box) return;
+
+    if (patchParts.length > 1) {
+      // 有分卷：显示分卷下载栏（每卷独立下载）+ 点击下载=合并全部
+      box.style.display = '';
+      box.innerHTML = patchParts.map(function (p, i) {
+        return '<div class="file"><div class="meta"><div class="name">分卷' + (i + 1) + '：' + p +
+          '</div></div>' +
+          '<a class="btn" href="./patches/' + p + '" download>下载</a></div>';
+      }).join('');
+      dlAll.removeAttribute('href');
+      dlAll.onclick = function (e) { e.preventDefault(); downloadAll(); };
+    } else if (patchParts.length === 1) {
+      // 无分卷：隐藏分卷下载栏，点击下载=直接下载该文件
+      box.style.display = 'none'; box.innerHTML = '';
+      dlAll.setAttribute('href', './patches/' + patchParts[0]);
+      dlAll.setAttribute('download', 'patches-client.zip');
+      dlAll.onclick = null;
+    } else {
+      // 无可用文件
+      box.style.display = 'none'; box.innerHTML = '';
+      dlAll.removeAttribute('href');
+      dlAll.onclick = function (e) { e.preventDefault(); alert('暂无可下载的补丁'); };
+    }
+  }).catch(function () {});
 
   // ===== 注册提交（含验证码 + 蜜罐校验）=====
   var REG_API = location.origin + '/api/register';

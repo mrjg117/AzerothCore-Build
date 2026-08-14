@@ -34,21 +34,46 @@ echo "==> [1/3] 构建玩家补丁包 patches-client.zip（AddOns 按 client-pat
 mkdir -p patches
 ADDONS_FILE="$REPO_ROOT/client-patches/addons.txt"
 [ -f "$ADDONS_FILE" ] || { echo "缺少 $ADDONS_FILE"; exit 1; }
-while read -r name url _; do
+while read -r name url src dst _; do
   # 跳过空行与 # 注释行
   [ -z "$name" ] && continue
   [ "${name:0:1}" = "#" ] && continue
   [ -z "$url" ] && { echo "    警告: $name 缺 url，跳过"; continue; }
+  [ -z "$src" ] && { echo "    警告: $name 缺源路径，跳过"; continue; }
   # 用 mktemp -d 隔离，避免多实例并行构建时临时目录互相踩
   tmpd="$(mktemp -d)" || { echo "    无法创建临时目录，跳过 $name"; continue; }
-  git clone --depth 1 "$url" "$tmpd"
-  if [ -d "$tmpd/client_addon" ]; then
-    mkdir -p "$REPO_ROOT/client-patches/$name/addon"
-    cp -rf "$tmpd/client_addon/." "$REPO_ROOT/client-patches/$name/addon/"
-    echo "    拉取 $name 的 AddOn"
-  else
-    echo "    警告: $name 上游无 client_addon/，跳过"
+  if ! git clone --depth 1 "$url" "$tmpd" 2>/dev/null; then
+    echo "    警告: $name 克隆失败，跳过"
+    rm -rf "$tmpd"
+    continue
   fi
+  # 落位推导：优先显式第四列；否则按 WoW 通用规则（认文件特征，不认上游目录名）
+  if [ -n "${dst:-}" ]; then
+    : # 显式落位兜底
+  elif [ -d "$tmpd/$src" ]; then
+    if find "$tmpd/$src" -maxdepth 3 -name '*.toc' 2>/dev/null | grep -q .; then
+      dst="Interface/AddOns/$(basename "$src")"
+    else
+      dst="$src"   # 非 AddOn 目录：原样保留相对路径
+    fi
+  elif [ -f "$tmpd/$src" ]; then
+    case "$src" in
+      *.mpq|*.MPQ)
+        locale="$(echo "$src" | grep -oiE '(zhCN|zhTW|enUS|enGB|deDE|esES|esMX|frFR|koKR|ruRU|ptBR|itIT)' | head -1 || true)"
+        [ -z "$locale" ] && locale="$(basename "$src" | grep -oiE '(zhCN|zhTW|enUS|enGB|deDE|esES|esMX|frFR|koKR|ruRU|ptBR|itIT)' | head -1 || true)"
+        if [ -n "$locale" ]; then dst="Data/$locale/$(basename "$src")"; else dst="Data/$(basename "$src")"; fi
+        ;;
+      *) dst="$(basename "$src")" ;;   # 根文件（realmlist 等）
+    esac
+  else
+    echo "    警告: $name 源路径 $src 在克隆中不存在，跳过"
+    rm -rf "$tmpd"
+    continue
+  fi
+  target="$REPO_ROOT/client-patches/$name/$dst"
+  mkdir -p "$(dirname "$target")"
+  cp -rf "$tmpd/$src" "$target"
+  echo "    拉取 $name → $dst"
   rm -rf "$tmpd"
 done < "$ADDONS_FILE"
 # 客户端补丁 .bat 的 REALM_ADDRESS 直接取单点配置值（默认与 WORLD_HOST 一致）

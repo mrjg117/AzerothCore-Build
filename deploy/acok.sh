@@ -18,12 +18,12 @@
 #   REALM_ADDRESS   对外地址（写入 auth 库 realmlist + 补丁包启动器.bat），如 play.example.com 或 1.2.3.4
 #   IMAGE_NS        镜像命名空间（默认 ghcr.io/mrjg117）
 #   SOAP_LOGIN      注册 SOAP 账号（默认 ACOK；也可环境变量传入，免交互）
-#   SOAP_PASSWORD    注册 SOAP 密码（无默认值，必须输入；与 build.sh 部署时生成的强密码一致）
+#   SOAP_PASSWORD    注册 SOAP 密码（无默认值，必须输入；须与 CF 后台 Variables & Secrets 手设的 SOAP_PASSWORD 完全一致）
 #   DB_ROOT_PASSWORD 数据库 root 密码（默认 .env 内置，部署时可交互修改）
 #   WORK_DIR        部署目录（默认 /opt/azerothcore-ok）
 #
 # ⚠️ SOAP 密码安全：只在「本游戏服本地」输入/保存，不进仓库、不进公开托管的 .env。
-#    Cloudflare Worker 侧的 SOAP_PASSWORD 由 build.sh 部署时生成并注入运行变量；游戏服运行 acok.sh 时
+#    Cloudflare Worker 侧的 SOAP_PASSWORD 由你在后台 Variables & Secrets 手动设置；游戏服运行 acok.sh 时
 #    手动输入同一密码（无默认值），两边须一致，注册接口才认证通过。
 # ============================================================
 set -euo pipefail
@@ -79,13 +79,13 @@ elif [ -s "$SOAP_CREDS" ]; then
   SOAP_PASSWORD="$(grep '^SOAP_PASSWORD=' "$SOAP_CREDS" | cut -d= -f2-)"
   echo "==> 沿用本地已记住的 SOAP 账号（位于 $SOAP_CREDS）"
 else
-  echo "==> 首次部署：请设置注册 SOAP 账号/密码（SOAP_LOGIN 默认 ACOK；SOAP_PASSWORD 须与 build.sh 部署时生成的强密码一致）"
+  echo "==> 首次部署：请设置注册 SOAP 账号/密码（SOAP_LOGIN 默认 ACOK；SOAP_PASSWORD 须与 CF 后台手设的 SOAP_PASSWORD 一致）"
   if [ -z "${SOAP_LOGIN:-}" ]; then
     if _v="$(_ask_tty 'SOAP_LOGIN [ACOK]: ')"; then SOAP_LOGIN="${_v:-ACOK}"; else read -r -p 'SOAP_LOGIN [ACOK]: ' SOAP_LOGIN || SOAP_LOGIN=ACOK; fi
   fi
   SOAP_LOGIN="${SOAP_LOGIN:-ACOK}"
   if [ -z "${SOAP_PASSWORD:-}" ]; then
-    if _v="$(_ask_tty 'SOAP_PASSWORD（无默认值，必填，须与部署生成的强密码一致）: ' -s)"; then echo; SOAP_PASSWORD="$_v"; else read -rs -p 'SOAP_PASSWORD: ' SOAP_PASSWORD; echo; fi
+    if _v="$(_ask_tty 'SOAP_PASSWORD（无默认值，必填，须与 CF 后台手设的 SOAP_PASSWORD 一致）: ' -s)"; then echo; SOAP_PASSWORD="$_v"; else read -rs -p 'SOAP_PASSWORD: ' SOAP_PASSWORD; echo; fi
   fi
   if [ -z "$SOAP_PASSWORD" ]; then
     echo "!! SOAP_PASSWORD 不能为空"; exit 1
@@ -150,4 +150,4 @@ docker compose exec -T ac-database mysql -uroot -p"$DBPW" acore_auth \
 
 echo "==> 完成。世界服 8085 / 3724；注册 SOAP 7878；玩家连 $REALM。"
 echo "    日志：docker compose logs -f ac-worldserver"
-echo "    ⚠️ Worker 侧的 SOAP_PASSWORD 已在 build.sh 部署时生成并注入运行变量；此处输入的密码须与之完全一致（注册接口才认证通过）。"
+echo "    ⚠️ Worker 侧的 SOAP_PASSWORD 由你在 CF 后台 Variables & Secrets 手动设置；此处输入的密码须与之完全一致（注册接口才认证通过）。"

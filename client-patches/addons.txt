@@ -1,9 +1,20 @@
 # 玩家补丁 AddOn 清单（构建期从上游直拉，不入库）
-# 格式：<模组目录名><空白><上游 git 地址>
+# 格式：<模组名>  <上游 git 地址>  <仓库内源路径>  [可选: 显式落位]
 # 说明：
-#   - 模组目录名 = client-patches/<name>/addon/ 的 <name>，也是 Interface/AddOns 下的目录名
-#   - 脚本会 git clone --depth 1 上游，取其中的 client_addon/ 拷到 client-patches/<name>/addon/
-#   - 没有 client_addon/ 的模组（如仅含 MPQ）不在此列；其 MPQ 直接放 client-patches/<name>/mpq/
-#   - 想加/换模组：改这个列表即可，build.sh 会按列表现拉现打
-guild-levels          https://github.com/Old-Man-Warcraft/mod-guild-levels.git
-item-affixes         https://github.com/Nevaden/mod-item-affixes.git
+#   - 本列表只写「数据」：模组名 + 上游地址 + 仓库内源路径；脚本(build.sh)只写「逻辑」。
+#   - 脚本克隆后按 <源路径> 取件，落位按 WoW 通用规则推导（认文件特征，不认上游目录名）：
+#       * 含 .toc 的目录  -> Interface/AddOns/<目录名>      （AddOn 插件）
+#       * .mpq 文件       -> Data/<locale>/<文件名>          （locale 不足则 Data/）
+#       * 其它文件        -> 客户端根目录（同名）
+#   - 极少数「推导落位不对」的，写第四列显式落位兜底（WoW 根相对路径）。
+#   - 本地自定义补丁（MPQ 等）不在此列，直接放 client-patches/<模组>/<WoW根相对路径>/ 下。
+#   - 想加/换模组：只改这个列表即可，build.sh / make-archive.py 不变。
+#
+# 示例：
+#   guild-levels   https://github.com/Old-Man-Warcraft/mod-guild-levels.git   client_addon/GuildLevels
+#   item-affixes   https://github.com/Nevaden/mod-item-affixes.git            addon/ItemAffixes
+#   some-mpq-mod   https://github.com/foo/bar.git                             mpq/zhCN/patch-x.mpq
+#   weird-mod      https://github.com/foo/baz.git                             src/odd   wow/data/odd   # 第四列显式落位兜底
+#
+guild-levels   https://github.com/Old-Man-Warcraft/mod-guild-levels.git   client_addon/GuildLevels
+item-affixes   https://github.com/Nevaden/mod-item-affixes.git            addon/ItemAffixes
