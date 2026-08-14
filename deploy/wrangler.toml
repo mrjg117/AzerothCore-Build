@@ -9,7 +9,7 @@
 #   - 游戏服 acok.sh 运行时仍需手动输入同一对值（SOAP_LOGIN 默认 ACOK、SOAP_PASSWORD 无默认值）。
 #   - keep_vars = true：防御性保护你在 CF 后台手设的变量不被部署覆盖。
 
-name = "azerothcore-ok"
+name = "acok"
 main = "worker.js"
 compatibility_date = "2025-04-01"
 
