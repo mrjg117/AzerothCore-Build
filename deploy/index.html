@@ -6,7 +6,17 @@
 <title>AzerothCore-OK · 一键部署 AzerothCore</title>
 <!-- 复用天赋模拟器皮肤（暗色 + 金色描边）；仅加载 CSS，JS 懒加载 -->
 <link rel="stylesheet" href="./talent-sim/assets/css/style.css">
+<!-- 首屏优先：天赋模拟器 5 个 JS 在后台预取（不执行），切标签/刷新时从缓存秒加载 -->
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/data.js">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyphs.js">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyph_cn.js">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyph_desc.js">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/app.js">
 <style>
+  /* 滚动条槽位常驻预留：避免滚动条出现/消失导致整页水平位移（点职业/加点时摇晃） */
+  html{scrollbar-gutter:stable}
+  /* 顶栏收紧：集成页顶栏比独立模拟器更紧凑，帮助首页一屏不滚动 */
+  .topbar{padding:10px 16px}
   /* ===== 统一壳层（标签导航 / 注册面板）===== */
   /* 顶栏三区：brand 左 | tabbar 居中(flex:1) | controls 右(flex:none)
      控件用 visibility 占位（仍 display:flex）而非 display:none，避免切换时顶栏高度/标签位置抖动 */
@@ -22,17 +32,17 @@
   @media (max-width:780px){
     .topbar-inner{flex-wrap:wrap;justify-content:center;gap:10px}
     .tabbar{flex:none}
-    .controls{flex:none;width:100%;justify-content:center}
+    .controls{flex-wrap:wrap;width:100%;justify-content:center}
   }
 
-  #panel-home{max-width:760px;margin:0 auto;padding:24px 18px 70px}
-  #panel-sim{padding:24px 0 70px}
-  .page-head{margin-bottom:22px}
+  #panel-home{max-width:760px;margin:0 auto;padding:20px 18px 40px}
+  #panel-sim{padding:18px 0 28px}
+  .page-head{margin-bottom:20px}
   .page-head .sub{color:var(--gold);margin:0 0 6px;font-size:15px}
   .page-head .meta-line{color:var(--muted);font-size:13px;margin:0}
   .page-head a{color:var(--blue)}
 
-  .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:18px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
   /* 弱化模拟器职业选择栏的「第二 header」观感：去满宽深条，使其融入页面而非独立头 */
   #panel-sim .classbar{background:transparent;border-bottom:none;padding-top:0;padding-bottom:14px}
   .card>h2{font-size:17px;margin:0 0 14px;color:var(--gold)}
@@ -58,6 +68,21 @@
   #regMsg{font-size:13px;margin-top:6px;min-height:18px}
   #regMsg.ok{color:var(--green)} #regMsg.err{color:var(--red)}
   .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+  /* 集成页专属：收紧天赋模拟器尺寸，使其 HD 一屏不滚动（仅影响本页，不动 style.css） */
+  :root{ --step:56px; --pad-x:14px; --pad-y:12px; --icon:50px; }
+  #panel-sim{padding:16px 0 24px}
+  #panel-sim .classbar{padding:10px 16px 6px}
+  #panel-sim .layout{padding:8px 16px;gap:14px}
+
+  /* 顶栏控件：禁用换行 + 固定「已用/最大/剩余」框宽，避免加点时左侧「等级/最大天赋」被右侧文字顶位移 */
+  .controls{flex-wrap:nowrap;white-space:nowrap;gap:14px}
+  .ctl-group{display:flex;align-items:flex-end;gap:12px;flex:none}
+  .ctl-group.right{align-items:center}
+  .ctl{flex:none}
+  .ctl label{white-space:nowrap}
+  .points-box{flex:none;width:200px;justify-content:space-between;white-space:nowrap}
+  .controls .btn{flex:none;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -76,22 +101,26 @@
 
     <!-- 仅「天赋模拟器」标签激活时显示（.controls[hidden] 兜底） -->
     <div class="controls" id="simControls" hidden>
-      <div class="ctl">
-        <label for="levelSel">等级</label>
-        <select id="levelSel" title="选择角色等级：自动计算可用天赋点，并解锁对应雕文槽"></select>
+      <div class="ctl-group">
+        <div class="ctl">
+          <label for="levelSel">等级</label>
+          <select id="levelSel" title="选择角色等级：自动计算可用天赋点，并解锁对应雕文槽"></select>
+        </div>
+        <div class="ctl">
+          <label for="maxPts">最大天赋点</label>
+          <input id="maxPts" type="number" min="0" max="200" step="1" value="71" title="可自定义最大天赋点（如私服特殊规则）">
+        </div>
       </div>
-      <div class="ctl">
-        <label for="maxPts">最大天赋点</label>
-        <input id="maxPts" type="number" min="0" max="200" step="1" value="71" title="可自定义最大天赋点（如私服特殊规则）">
+      <div class="ctl-group right">
+        <div class="points-box">
+          <span class="p-used">已用 <b id="usedPts">0</b></span>
+          <span class="p-sep">/</span>
+          <span class="p-max">最大 <b id="maxPtsLbl">71</b></span>
+          <span class="p-left">剩余 <b id="leftPts">71</b></span>
+        </div>
+        <button id="resetBtn" class="btn" title="清空当前职业天赋与雕文">重置</button>
+        <button id="shareBtn" class="btn primary" title="生成可分享的链接（含天赋与雕文）">复制分享链接</button>
       </div>
-      <div class="points-box">
-        <span class="p-used">已用 <b id="usedPts">0</b></span>
-        <span class="p-sep">/</span>
-        <span class="p-max">最大 <b id="maxPtsLbl">71</b></span>
-        <span class="p-left">剩余 <b id="leftPts">71</b></span>
-      </div>
-      <button id="resetBtn" class="btn" title="清空当前职业天赋与雕文">重置</button>
-      <button id="shareBtn" class="btn primary" title="生成可分享的链接（含天赋与雕文）">复制分享链接</button>
     </div>
   </div>
 </header>
@@ -152,7 +181,7 @@
   </div>
 </section>
 
-<!-- 天赋模拟器（懒加载：首次点击标签才注入 JS 并初始化） -->
+<!-- 天赋模拟器（默认 hidden；点击/刷新到该标签时才显示并加载 JS，渲染始终在可见面板中进行） -->
 <section id="panel-sim" hidden>
   <nav id="classBar" class="classbar" aria-label="职业选择"></nav>
   <div id="statusBanner" class="status-banner"></div>
@@ -166,41 +195,133 @@
 (function () {
   "use strict";
 
-  // ===== 标签切换 + 模拟器懒加载 =====
+  // ===== 标签切换 + 模拟器后台构建（首屏优先，其余持续下载） + 刷新恢复 =====
+  var KEY_TAB = "acok_active_tab";
+  var KEY_SCROLL = "acok_scroll_y";
   var simLoaded = false;
-  function activateSim() {
-    document.getElementById('panel-home').hidden = true;
-    document.getElementById('panel-sim').hidden = false;
-    document.getElementById('simControls').hidden = false;
-    if (simLoaded) return;            // 已构建则常驻，不重复加载
+  var simBase = "./talent-sim/assets/js/";
+
+  // 资源路径桥：data.js 内的 icon/bg/sprite 是相对 talent-sim/ 目录的路径，
+  // 集成页部署在根（deploy/），需补 'talent-sim/' 前缀才能正确解析（修复图标不加载）。
+  var ASSET_BRIDGE = [
+    "(function(){",
+    "  var base='talent-sim/';",
+    "  if(typeof CLASSES!=='undefined'){",
+    "    CLASSES.forEach(function(c){",
+    "      if(c.icon)c.icon=base+c.icon;",
+    "      (c.trees||[]).forEach(function(t){",
+    "        if(t.bg)t.bg=base+t.bg;",
+    "        if(t.sprite)t.sprite=base+t.sprite;",
+    "      });",
+    "    });",
+    "  }",
+    "})();"
+  ].join("\n");
+
+  function saveState() {
+    try {
+      var active = document.querySelector(".tab.active");
+      var tab = active ? active.getAttribute("data-tab") : "home";
+      localStorage.setItem(KEY_TAB, tab);
+      localStorage.setItem(KEY_SCROLL + "_" + tab, String(window.scrollY));
+    } catch (e) {}
+  }
+  // 初始标签判定：URL hash 优先（刷新时由浏览器原生保留，不依赖 localStorage），
+  // localStorage 仅作兜底。这样即便预览/隐私模式下 localStorage 不可用，刷新仍能回到天赋页。
+  function getInitialTab() {
+    var isShare = /[?&]build=/.test(location.search) || location.hash.indexOf("#build=") === 0;
+    if (isShare) return "sim";
+    if (location.hash === "#sim") return "sim";
+    if (location.hash === "#home") return "home";
+    var ls = "home";
+    try { ls = localStorage.getItem(KEY_TAB) || "home"; } catch (e) {}
+    return ls === "sim" ? "sim" : "home";
+  }
+  // 切标签时把当前标签写进 URL hash（replaceState 不新增历史、不触发 hashchange），
+  // 使刷新原生回到该标签，彻底脱离对 localStorage 的依赖。
+  function syncUrlTab(tab) {
+    try { history.replaceState(null, "", location.pathname + location.search + (tab === "sim" ? "#sim" : "#home")); } catch (e) {}
+  }
+  function savedScroll(tab) {
+    var y = 0;
+    try { y = parseInt(localStorage.getItem(KEY_SCROLL + "_" + tab) || "0", 10) || 0; } catch (e) {}
+    return y;
+  }
+
+  var panelHome = document.getElementById("panel-home");
+  var panelSim = document.getElementById("panel-sim");
+  var simControls = document.getElementById("simControls");
+  function showSim() {
+    panelHome.hidden = true;
+    panelSim.hidden = false;
+    simControls.hidden = false;
+  }
+  function showHome() {
+    panelSim.hidden = true;
+    simControls.hidden = true;
+    panelHome.hidden = false;
+  }
+
+  // 顺序注入：data→glyphs→glyph_cn→glyph_desc→桥→app。
+  // 关键：注入前先 showSim() 让面板可见，app.js 在【可见】状态下渲染，
+  // 彻底避免此前「离屏构建 → 尺寸算错/空白」的刷新 bug。点击与刷新走同一条路径，行为完全一致。
+  function buildSim() {
+    showSim();
+    if (simLoaded) return;
     simLoaded = true;
-    var base = './talent-sim/assets/js/';
-    var files = ['data.js', 'glyphs.js', 'glyph_cn.js', 'glyph_desc.js', 'app.js'];
-    (function next(i) {               // 按序注入，app.js 最后执行即初始化
-      if (i >= files.length) return;
-      var s = document.createElement('script');
-      s.src = base + files[i];
-      s.async = false;
-      s.onload = function () { next(i + 1); };
-      s.onerror = function () { console.error('[talent-sim] 加载失败:', files[i]); };
-      document.body.appendChild(s);
+    var order = [
+      { src: "data.js" }, { src: "glyphs.js" }, { src: "glyph_cn.js" },
+      { src: "glyph_desc.js" }, { code: ASSET_BRIDGE }, { src: "app.js" }
+    ];
+    (function next(i) {
+      if (i >= order.length) return;
+      var step = order[i];
+      var s = document.createElement("script");
+      if (step.code != null) {
+        s.textContent = step.code;
+        document.body.appendChild(s);
+        next(i + 1);
+      } else {
+        s.src = simBase + step.src;
+        s.async = false;
+        s.onload = function () { next(i + 1); };
+        s.onerror = function () { console.error("[talent-sim] 加载失败:", step.src); next(i + 1); };
+        document.body.appendChild(s);
+      }
     })(0);
   }
-  function activateHome() {
-    document.getElementById('panel-sim').hidden = true;
-    document.getElementById('simControls').hidden = true;
-    document.getElementById('panel-home').hidden = false;
-  }
-  var tabs = document.querySelectorAll('.tab');
+
+  var tabs = document.querySelectorAll(".tab");
   tabs.forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      tabs.forEach(function (t) { t.classList.remove('active'); });
-      tab.classList.add('active');
-      if (tab.getAttribute('data-tab') === 'sim') activateSim();
-      else activateHome();
-      window.scrollTo(0, 0);   // 切换标签回到顶部，避免落中段产生「位移」
+    tab.addEventListener("click", function () {
+      tabs.forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");              // 先切换 active
+      saveState();                              // 再存：此时 .active 已是新标签（sim/home），不依赖 beforeunload
+      syncUrlTab(tab.getAttribute("data-tab")); // 写 URL hash，刷新原生保留
+      if (tab.getAttribute("data-tab") === "sim") { showSim(); buildSim(); }
+      else { showHome(); }
+      window.scrollTo(0, 0);
     });
   });
+  window.addEventListener("beforeunload", saveState);
+
+  // 刷新/分享链接恢复：与点击路径【完全一致】（showSim + buildSim），
+  // 确保刷新与首次点击行为一致——这是此前「刷新不显示」反复翻车的根因所在。
+  (function restoreTab() {
+    var initial = getInitialTab();
+    var isShare = /[?&]build=/.test(location.search) || location.hash.indexOf("#build=") === 0;
+    if (isShare || initial === "sim") {
+      var simTab = document.querySelector('.tab[data-tab="sim"]');
+      if (simTab) {
+        tabs.forEach(function (t) { t.classList.remove("active"); });
+        simTab.classList.add("active");
+        showSim(); buildSim();                  // 与点击完全一致：可见后再注入渲染
+        if (!isShare) window.scrollTo(0, savedScroll("sim"));
+      } else { showHome(); }
+    } else {
+      showHome();
+    }
+  })();
 
   // ===== 客户端验证码（纯本地计算 + 蜜罐防机器）=====
   var capA, capB, capOp, capAns;
@@ -299,12 +420,6 @@
       msg.className = 'err'; msg.textContent = '注册服务连接失败，请稍后再试';
     });
   });
-
-  // ===== 分享链接自动打开模拟器标签 =====
-  if (/[?&]build=/.test(location.search) || location.hash.indexOf('#build=') === 0) {
-    var simTab = document.querySelector('.tab[data-tab="sim"]');
-    if (simTab) simTab.click();
-  }
 })();
 </script>
 </body>

@@ -74,6 +74,10 @@ select,input[type=number]{background:var(--panel2);color:var(--text);border:1px 
 .talent.spent:not(.locked) .icon{filter:none}
 .talent:hover .icon{box-shadow:0 0 12px rgba(232,195,114,.9)}
 .talent.dep .icon{outline:2px solid var(--red)}
+/* 前置天赋连线：从当前天赋指向其 prereq 天赋；满足后由金色虚线变绿实线 */
+.prereq-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.prereq-line{stroke:var(--gold);stroke-width:1.5;stroke-opacity:.35;stroke-dasharray:4 3}
+.prereq-line.satisfied{stroke:var(--green);stroke-opacity:.6;stroke-dasharray:none}
 
 /* 状态提示（固定高度占位，永远预留空间，文字出现时不会改变布局，不挤压天赋栏） */
 /* 状态提示：复用天赋栏的 4 列网格 + 同 1200px 居中，文字只覆盖左 3 列（即 3 棵天赋树的宽度），
@@ -92,20 +96,18 @@ select,input[type=number]{background:var(--panel2);color:var(--text);border:1px 
 .glyph-group .ghint{font-size:10.5px;color:var(--muted);margin:0;text-align:right;white-space:nowrap}
 /* 雕文框：选择+展示一体（未选择时提示）；点击展开选项面板；flex:1 均分填满、不随内容撑高、不导致整栏滚动 */
 .glyph-slot{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:8px;
-  padding:6px 9px;flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:5px;overflow:hidden;cursor:pointer}
+  padding:6px 10px;flex:1;min-height:0;display:grid;grid-template-rows:repeat(5,1fr);row-gap:2px;overflow:hidden;cursor:pointer}
 .glyph-slot:hover{border-color:var(--accent)}
 .glyph-slot.active{border-color:var(--gold)}
-.glyph-slot.locked{justify-content:center;align-items:center;border-style:dashed;cursor:default}
+.glyph-slot.locked{display:flex;justify-content:center;align-items:center;border-style:dashed;cursor:default}
 .glyph-slot.locked:hover{border-color:var(--line)}
 .glyph-slot .glock{font-size:12px;color:var(--red);text-align:center}
-/* 标题：自然高度，整块垂直居中时位于上方 */
-.glyph-slot .gname{font-size:13px;font-weight:700;color:var(--muted);flex:none;text-align:left;height:18px;display:flex;align-items:center;line-height:1.4}
-.glyph-slot .gname.on{color:var(--gold2)}
-/* 描述：自然高度、最多 3 行（超出加 .small 缩字体在 4 行内完整显示）；整块垂直居中时位于标题下方 */
-.glyph-slot .gdesc{font-size:12px;line-height:1.5;color:var(--text);flex:none;text-align:left;height:54px;
-  display:flex;align-items:flex-start;overflow:hidden;word-break:break-word}
+/* 标题：占第 1 行（1/5 高度），文字落在行底、紧贴描述；与选项列表 .go-name 同 gold2 */
+.glyph-slot .gname{grid-row:1;align-self:end;font-size:13px;font-weight:700;color:var(--gold2);line-height:15px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* 描述：占第 2–5 行（4/5 高度），行高 16px × 4 行 = 正好 4 行（64px<描述区）；超出裁切，浮层看全文 */
+.glyph-slot .gdesc{grid-row:2 / span 4;align-self:start;font-size:12px;line-height:16px;color:var(--text);
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .glyph-slot .gdesc.muted{color:var(--muted);font-size:11px}
-.glyph-slot .gdesc.small{font-size:10px;line-height:13.5px}
 
 /* 雕文选项浮层（自定义弹层，非半透明遮罩）：固定定位避免被面板 overflow:hidden 裁切；
    宽≈雕文面板宽、高≈雕文面板高（差不多盖住 6 个雕文框），超出则内部滚动；按槽位位置上/下/中弹 */
@@ -119,7 +121,7 @@ select,input[type=number]{background:var(--panel2);color:var(--text);border:1px 
 .glyph-opt.chosen{background:rgba(232,195,114,.12)}
 .glyph-opt .go-name{font-size:13px;font-weight:700;color:var(--gold2);line-height:1.4}
 .glyph-opt .go-desc{font-size:12px;line-height:1.5;color:var(--text);margin-top:3px;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+  display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
 .glyph-opt.clear .go-name{color:var(--muted);font-weight:600}
 
 .tooltip{position:fixed;z-index:200;max-width:320px;background:rgba(12,14,20,.97);border:1px solid var(--accent);

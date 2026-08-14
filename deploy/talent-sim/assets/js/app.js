@@ -11,7 +11,14 @@
 
   // ---------- 状态 ----------
   const state = {
-    className: CLASSES[0].name,
+    className: (function () {
+    try {
+      let v = localStorage.getItem("acok_sim_class");
+      if (v) { try { v = JSON.parse(v); } catch(e) {} }
+      if (v && CLASSES.find(c => c.name === v)) return v;
+      return CLASSES[0].name;
+    } catch (e) { return CLASSES[0].name; }
+  })(),
     maxPoints: 71,
     level: 80,
     builds: loadJSON(LS_BUILDS, {}),   // { className: { treeName: { talentName: rank } } }
@@ -153,7 +160,7 @@
       img.onerror = () => { img.style.display = "none"; };
       const span = document.createElement("span"); span.textContent = c.cn;
       b.appendChild(img); b.appendChild(span);
-      b.onclick = () => { state.className = c.name; render(); };
+      b.onclick = () => { state.className = c.name; try { localStorage.setItem("acok_sim_class", c.name); } catch (e) {} render(); };
       bar.appendChild(b);
     });
   }
@@ -203,12 +210,13 @@
       body.style.height = bodyH + "px";
       body.style.padding = padY + "px " + padX + "px";
       tree.talents.forEach(tal => body.appendChild(renderTalent(cls, tree, tal)));
+      drawPrereqLines(cls, tree, body);
       panel.appendChild(body);
       layout.insertBefore(panel, glyphPanel);
     });
-    // 固定雕文页高度 = 单棵天赋树实际高度，保证两侧等高、不随选中内容变化
-    const firstTree = layout.querySelector(".tree");
-    if (firstTree) document.documentElement.style.setProperty("--tree-h", firstTree.offsetHeight + "px");
+    // 固定雕文页/布局高度 = 理论树高度（head 约 42px + bodyH），不依赖 offsetHeight。
+    // 避免在集成页离屏构建时 offsetHeight=0 把 --tree-h 压成 0px 导致天赋树/雕文栏空白。
+    document.documentElement.style.setProperty("--tree-h", (bodyH + 42) + "px");
   }
 
   function renderTalent(cls, tree, tal) {
@@ -246,6 +254,37 @@
     return el;
   }
 
+  // 前置天赋连线：在每个 tree-body 内叠加 SVG，从 prereq 天赋中心连到依赖它的天赋中心
+  function drawPrereqLines(cls, tree, body) {
+    try {
+      const old = body.querySelector(".prereq-svg");
+      if (old) old.remove();
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "prereq-svg");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+      const cs = getComputedStyle(document.documentElement);
+      const step = parseFloat(cs.getPropertyValue("--step")) || 58;
+      const padX = parseFloat(cs.getPropertyValue("--pad-x")) || 18;
+      const padY = parseFloat(cs.getPropertyValue("--pad-y")) || 18;
+      const b = (state.builds[cls.name] && state.builds[cls.name][tree.name]) || {};
+      tree.talents.forEach(tal => {
+        if (!tal.prereq) return;
+        const pr = talentByName(tree, tal.prereq);
+        if (!pr) return;
+        const x1 = padX + (pr.col + 0.5) * step, y1 = padY + (pr.row + 0.5) * step;
+        const x2 = padX + (tal.col + 0.5) * step, y2 = padY + (tal.row + 0.5) * step;
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1.toFixed(1)); line.setAttribute("y1", y1.toFixed(1));
+        line.setAttribute("x2", x2.toFixed(1)); line.setAttribute("y2", y2.toFixed(1));
+        line.setAttribute("class", "prereq-line");
+        if ((b[tal.prereq] || 0) >= (tal.prereqRank || pr.maxRank)) line.classList.add("satisfied");
+        svg.appendChild(line);
+      });
+      body.appendChild(svg);
+    } catch (e) { console.error("[acok] drawPrereqLines failed:", e); }
+  }
+
   function renderPoints() {
     const used = classPoints(state.className);
     const left = state.maxPoints - used;
@@ -278,7 +317,6 @@
   }
 
   // 估算描述「中文字当量」行数（与 CSS 框宽 243px / 12px 字号一致）：>3 行则标记 small 缩字体完整显示
-  function descUnits(s) { let u = 0; for (const ch of s) { u += (ch.charCodeAt(0) <= 0x7F) ? 0.5 : 1; } return u; }
   function renderGlyphs() {
     closePop();
     const panel = document.getElementById("glyphPanel");
@@ -306,7 +344,7 @@
           lk.textContent = "未解锁 · 需 Lv." + needLv;
           slot.appendChild(lk);
         } else {
-          // 框本身即展示区：第 1 行 = 雕文名，下 3 行 = 描述（line-clamp 3）
+          // 框本身即展示区：第 1 行 = 雕文名，下 4 行 = 描述；所有雕文框统一样式，不做激活/长文特殊处理
           const nm = document.createElement("div");
           nm.className = "gname";
           const ds = document.createElement("div");
@@ -315,9 +353,8 @@
           if (cur) {
             const cnm = (typeof GLYPH_CN !== "undefined" && GLYPH_CN[cur]) ? GLYPH_CN[cur] : cur;
             const cds = (typeof GLYPH_DESC !== "undefined" && GLYPH_DESC[cur]) ? GLYPH_DESC[cur] : "";
-            nm.textContent = cnm; nm.classList.add("on");
+            nm.textContent = cnm;
             ds.textContent = cds;
-            if (descUnits(cds) > 61) ds.classList.add("small");
           } else {
             nm.textContent = "— 未选择 —";
             ds.textContent = "点击此框选择雕文";
