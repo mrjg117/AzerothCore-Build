@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 # ============================================================
-# build.sh  ——  Cloudflare Worker 构建命令（也可本地跑）
+# build.sh  ——  Cloudflare Worker 构建 + 部署命令（也可本地跑）
 # ------------------------------------------------------------
-# 仓库只提交「部署源文件」；补丁压缩包在构建时现打，不进 git 仓库。
+# 仓库只提交「部署源文件」；补丁压缩包、.env、docker-compose.yml 在构建时现生成，不进 git 仓库。
 #
-# Cloudflare Worker（Static Assets）部署：
-#   构建命令：  bash deploy/build.sh
-#   部署方式：  在 Cloudflare 后台关联本仓库，推送即自动构建部署（Git 集成，无需 CLI）
-#   单点配置：  全部非机密配置写在 deploy/wrangler.toml 的 [vars] 里，提交即生效；
-#              build.sh 读取后注入 .env.example（玩家 acok.sh 预填）与 acok.sh（WORKER_BASE 烤进脚本）。
-#              无需在后台「构建环境变量」面板额外配置（CF 构建环境读不到运行时变量，故改用文件真相源）。
-#   机密：SOAP_PASSWORD 不写进任何文件，由后台 Variables & Secrets 设（keep_vars 保护）。
+# 部署（Git 集成，无需 CLI）：
+#   在 Cloudflare 后台关联本仓库，构建命令设为 `bash deploy/build.sh`，推送即自动构建并部署。
 #
-# 本地预览：跑完本脚本后，deploy/ 即为可直接由 Worker 托管的目录。
+# 单点配置：全部非机密配置写在 deploy/wrangler.toml 的 [vars] 里，提交即生效。
+#   - REALM_ADDRESS / IMAGE_NS / WORKER_BASE 由本脚本读取并注入 .env 与 acok.sh。
+#   - SOAP_LOGIN / SOAP_PASSWORD 不在此处理：请在 Cloudflare 后台 Variables & Secrets 手动设置，
+#     build.sh 部署只跑 `wrangler deploy`（不加 --var），Worker 直接用你后台设的值。
 # ============================================================
 set -euo pipefail
 
@@ -20,10 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$SCRIPT_DIR"
 
-# ---- 单点配置：从 wrangler.toml [vars] 读取（构建时真相源）----
-# 全部非机密配置写在 deploy/wrangler.toml 的 [vars] 里，提交即生效；
-# build.sh 读取后注入 .env.example（玩家 acok.sh 预填）与 acok.sh（WORKER_BASE 烤进脚本）；
-# 机密 SOAP_PASSWORD 不在此列，由后台 Variables & Secrets 设（keep_vars 保护），不写进任何公开文件。
+# ---- 单点配置：从 wrangler.toml [vars] 读取 ----
 _toml_get() {
   # 取 wrangler.toml [vars] 下 KEY = "value"（兼容行尾注释与对齐空格）
   grep -E "^$1[[:space:]]*=[[:space:]]*\"" wrangler.toml | head -1 | sed -E "s/^$1[[:space:]]*=[[:space:]]*\"(.*)\".*/\1/"
@@ -31,9 +26,11 @@ _toml_get() {
 _cfg_world_host="$(_toml_get WORLD_HOST)";   _cfg_world_host="${_cfg_world_host:-play.example.com}"
 _cfg_image_ns="$(_toml_get IMAGE_NS)";        _cfg_image_ns="${_cfg_image_ns:-ghcr.io/mrjg117}"
 _cfg_worker_base="$(_toml_get WORKER_BASE)";   _cfg_worker_base="${_cfg_worker_base:-https://azerothcore-ok.YOUR_SUBDOMAIN.workers.dev}"
-_cfg_realm="$_cfg_world_host"   # 客户端补丁地址 = WORLD_HOST，不单独设 REALM_ADDRESS 键
+# SOAP_LOGIN / SOAP_PASSWORD 不在此读取：由用户在 CF 后台手动设置，部署时不注入。
 
-echo "==> [1/2] 构建玩家补丁包 patches-client.zip（AddOns 按 client-patches/addons.txt 列表从上游直拉，MPQ 为仓库内自定义中文补丁）"
+# ---- SOAP 强密码：由用户在 CF 后台手动设置，部署不注入，此处不生成 ----
+
+echo "==> [1/3] 构建玩家补丁包 patches-client.zip（AddOns 按 client-patches/addons.txt 列表从上游直拉，MPQ 为仓库内自定义中文补丁）"
 mkdir -p patches
 ADDONS_FILE="$REPO_ROOT/client-patches/addons.txt"
 [ -f "$ADDONS_FILE" ] || { echo "缺少 $ADDONS_FILE"; exit 1; }
@@ -57,7 +54,7 @@ done < "$ADDONS_FILE"
 # 客户端补丁 .bat 的 REALM_ADDRESS 直接取单点配置值（默认与 WORLD_HOST 一致）
 PATCHES_DIR="$REPO_ROOT/client-patches" \
 ARCHIVE_OUT="$SCRIPT_DIR/patches/patches-client.zip" \
-REALM_ADDRESS="$_cfg_realm" \
+REALM_ADDRESS="$_cfg_world_host" \
   python3 "$REPO_ROOT/client-patches/make-archive.py"
 
 # 分卷：仅当整包超过 24 MiB 才切分（避免单文件过大、也便于批量下载）；
@@ -90,7 +87,7 @@ fi
 cd "$SCRIPT_DIR"
 echo "    清单 $(wc -l < patches/patches-manifest.txt) 行 -> patches/patches-manifest.txt"
 
-echo "==> [2/2] 拉取官方基础编排 docker-compose.yml（azerothcore-wotlk）"
+echo "==> [2/3] 拉取官方基础编排 docker-compose.yml（azerothcore-wotlk）"
 # 运行部署脚本（acok.sh）的玩家服务器可能在墙内，访问 raw.githubusercontent.com 会被墙；
 # 故把官方 compose 在「构建部署页时」由构建机（能访问 GitHub）一次性拉下，
 # 随 deploy/ 一起交给 Cloudflare 静态托管，acok.sh 改为从 WORKER_BASE 同源拉取。
@@ -104,16 +101,20 @@ else
   exit 1
 fi
 
-echo "==> [3/3] 注入部署配置（wrangler.toml 单点配置 → .env.example 与 acok.sh）"
-# 非机密项从 wrangler.toml 读取，注入 .env.example（玩家 acok.sh 预填）与 acok.sh（WORKER_BASE 烤进脚本）
-# 机密 SOAP_PASSWORD 不写，仍由后台 Variables & Secrets 提供（keep_vars 保护）
-esc_toml() { printf '%s' "$1" | sed 's/[&|]/\\&/g'; }
+echo "==> [3/3] 生成部署用 .env（仅注入 REALM_ADDRESS / IMAGE_NS；SOAP 两行保持模板占位，由 acok.sh 在游戏服本地交互填，不泄露；后台 SOAP 值由你手动设）"
+cp .env.example .env
+esc() { printf '%s' "$1" | sed 's/[&|]/\\&/g'; }
 # 客户端补丁地址 = WORLD_HOST（realmlist.wtf）
-sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc_toml "$_cfg_world_host")|" .env.example
-sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc_toml "$_cfg_image_ns")|" .env.example
+sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc "$_cfg_world_host")|" .env
+sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc "$_cfg_image_ns")|" .env
 # WORKER_BASE 烤进 acok.sh，玩家运行无需再传（自定义域名可传 WORKER_BASE= 覆盖）
-sed -i "s@WORKER_BASE=\"\${WORKER_BASE:-[^}]*}\"@WORKER_BASE=\"\${WORKER_BASE:-$(esc_toml "$_cfg_worker_base")}\"@" acok.sh
-echo "    已注入：WORLD_HOST=$_cfg_world_host | REALM_ADDRESS=$_cfg_world_host | IMAGE_NS=$_cfg_image_ns | WORKER_BASE=$_cfg_worker_base"
+sed -i "s@WORKER_BASE=\"\${WORKER_BASE:-[^\"}]*}\"@WORKER_BASE=\"\${WORKER_BASE:-$(esc "$_cfg_worker_base")}\"@" acok.sh
 
-echo "==> 完成：deploy/ 已就绪（构建产物见上方）。部署：Cloudflare 后台关联本仓库，推送即自动构建部署"
-echo "    生成产物：patches/（patches-client.zip 或分卷 + patches-manifest.txt）、docker-compose.yml（官方基础编排，构建时打包）"
+echo "==> 部署 Worker（wrangler deploy，不注入 SOAP_LOGIN/PASSWORD；两者请在 CF 后台 Variables & Secrets 手动设置，keep_vars 保证不被冲掉）"
+if command -v wrangler >/dev/null 2>&1; then
+  wrangler deploy
+else
+  echo "    （本地预览：未检测到 wrangler，跳过部署；推送到仓库后由 CF Git 集成自动部署）"
+fi
+
+echo "==> 完成。deploy/ 已就绪。游戏服一行部署：curl -fsSL $_cfg_worker_base/acok.sh | bash"

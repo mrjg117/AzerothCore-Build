@@ -1,27 +1,29 @@
 # AzerothCore-OK —— Cloudflare Worker 配置
-# 部署：在 Cloudflare 后台关联 GitHub 仓库，推送即自动构建部署（Git 集成，无需 CLI）
-# 单点配置：本文件 [vars] 即全部非机密配置真相源；构建时 build.sh 读取并注入 .env.example 与 acok.sh。
-#           默认值可直接改本文件提交；机密 SOAP_PASSWORD 不在此列，由后台 Variables & Secrets 设（keep_vars 保护）。
-#           注意：wrangler.toml 的 [vars] 是 Worker 运行时变量，CF 构建环境读不到它——build.sh 改为直接解析本文件取值。
+# 部署：Cloudflare 后台关联 GitHub 仓库，构建命令设为 `bash deploy/build.sh`，推送即自动构建并部署（Git 集成，无需 CLI）。
+# 单点配置：[vars] 即全部非机密配置真相源。
+#
+# SOAP_LOGIN / SOAP_PASSWORD 说明：
+#   - 两者均已注释掉：不在本文件定义。请直接在 Cloudflare 后台 Variables & Secrets 手动设置
+#     SOAP_LOGIN（如 ACOK）与 SOAP_PASSWORD（强密码）。build.sh 部署只跑 `wrangler deploy`（不加 --var），
+#     Worker 直接用你后台设的值；keep_vars = true 保证部署不冲掉它们。
+#   - 游戏服 acok.sh 运行时仍需手动输入同一对值（SOAP_LOGIN 默认 ACOK、SOAP_PASSWORD 无默认值）。
+#   - keep_vars = true：防御性保护你在 CF 后台手设的变量不被部署覆盖。
 
 name = "azerothcore-ok"
 main = "worker.js"
 compatibility_date = "2025-04-01"
 
-# 保留后台手动设置的机密：SOAP_PASSWORD 在后台 Variables & Secrets 设，
-# 不加 keep_vars 会被本文件 [vars] 的占位符覆盖。
-keep_vars = true
-
-# 静态资源（注册页 index.html + 玩家补丁 patches/ + acok.sh）由 Workers Static Assets 托管
+# 静态资源（注册页 index.html + 玩家补丁 patches/ + acok.sh + .env.example）由 Workers Static Assets 托管
 # 请求先过 worker.js；非 /api/* 的请求回退到这里托管的静态文件
 # .assetsignore 已排除 worker.js / wrangler.toml，避免源码被当作静态资源泄露
 assets = { directory = "./", not_found_handling = "none" }
 
-# 后端 worldserver SOAP 配置（非机密项即真相源；SOAP_PASSWORD 例外走后台 Secret）
+keep_vars = true
+
 [vars]
-WORLD_HOST = "play.example.com"                     # 游戏服公网域名/IP（玩家连 + Worker 连 SOAP 用），改本文件提交即生效
-WORLD_PORT = "7878"                                 # SOAP 端口
-IMAGE_NS   = "ghcr.io/mrjg117"                      # 镜像命名空间
-SOAP_LOGIN = "webreg"                               # SOAP 账号
-WORKER_BASE = "https://azerothcore-ok.YOUR_SUBDOMAIN.workers.dev"  # 本 Worker 地址（acok.sh 同源拉文件用）；自定义域名就填自定义域名
-SOAP_PASSWORD = "change_this_soap_password"         # 机密：后台 Variables & Secrets 设，keep_vars 保护，不写进本文件
+WORLD_HOST = "play.example.com"                                   # 游戏服公网域名/IP（玩家连 + Worker 连 SOAP 用）
+WORLD_PORT = "7878"                                               # SOAP 端口
+IMAGE_NS   = "ghcr.io/mrjg117"                                    # 镜像命名空间
+# SOAP_LOGIN = "ACOK"                                               # 已注释：请在 CF 后台 Variables & Secrets 手动设置
+# SOAP_PASSWORD = "AUTOGENERATE"                                   # 已注释：部署时由 build.sh 检测后台，有则沿用、无则生成并写入
+WORKER_BASE = "https://azerothcore-ok.YOUR_SUBDOMAIN.workers.dev" # 本 Worker 地址（acok.sh 同源拉文件用）；自定义域名就填自定义域名
