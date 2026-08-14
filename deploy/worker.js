@@ -8,9 +8,9 @@
 // 不在此处重复计数——请求一旦进 Worker 就已计入函数调用，内存 map 省不了额度，
 // 且 WAF 在边缘直接挡，功能覆盖原内存 map（按 IP 限频 + 封禁时长）且零函数消耗。
 //
-// 部署：cd deploy && npx wrangler deploy
-// 机密：wrangler secret put SOAP_PASSWORD
-// 变量：在 wrangler.toml 的 [vars] 填 WORLD_HOST / WORLD_PORT / SOAP_LOGIN
+// 部署：Cloudflare 后台关联 GitHub 仓库，推送即自动构建部署（Git 集成，无需 CLI）
+// 变量：后台 Settings → Variables and Secrets 配置；WORLD_HOST / SOAP_PASSWORD 首次部署后改成真实值
+// 本文件 [vars] 仅作初始占位，keep_vars=true 保证后台修改不被后续部署覆盖
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), {

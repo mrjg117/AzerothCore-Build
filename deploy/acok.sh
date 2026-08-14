@@ -3,17 +3,18 @@
 # AzerothCore-OK —— 一键部署游戏服务端（含 42 个模组）
 # ------------------------------------------------------------
 # 一行运行（在你的服务器终端，需有公网 IP、装好 Docker）：
-#   WORKER_BASE=https://<你的Worker域名> curl -fsSL https://<你的Worker域名>/acok.sh | WORKER_BASE=https://<你的Worker域名> bash
+#   curl -fsSL https://<你的Worker域名>/acok.sh | bash
+#   （WORKER_BASE 已烤进脚本，来自构建时的 wrangler.toml；自定义域名可传 WORKER_BASE= 覆盖）
 #
 # 它做了什么（全程无需手动敲命令）：
 #   1) 没装 Docker 就尝试装（Ubuntu/Debian/CentOS）
 #   2) 拉取部署文件到 $WORK_DIR（官方基础 compose + 我们的 override + .env）
-#   3) 用环境变量覆盖 .env（没给就保持 .env.example 默认值，你可事后改 .env）
+#   3) 用环境变量覆盖 .env（没给就保持 .env.example 默认值；该文件已由 build.sh 在构建时按 CF 构建变量预填，通常无需再传）
 #   4) docker compose pull && up -d（务必先 pull，否则会在本机编译）
 #   5) 自动建 SOAP 注册账号 webreg（gmlevel 3）并写入 realm 对外地址到 auth 库
 #
 # 可用环境变量（不传则保持 .env.example 默认值）：
-#   WORKER_BASE    本仓 Cloudflare Worker 域名（acok.sh 与 compose/env 均从此同源拉取；必填）
+#   WORKER_BASE    本仓 Cloudflare Worker 域名（默认已烤进脚本；自定义域名可传 WORKER_BASE= 覆盖）
 #   REALM_ADDRESS   对外地址（写入 auth 库 realmlist + 补丁包启动器.bat），如 play.example.com 或 1.2.3.4
 #   IMAGE_NS        镜像命名空间（默认 ghcr.io/mrjg117）
 #   SOAP_PASSWORD   注册 SOAP 密码（需与 Cloudflare Worker 的 SOAP_PASSWORD 一致）
@@ -23,10 +24,12 @@ set -euo pipefail
 
 WORK_DIR="${WORK_DIR:-/opt/azerothcore-ok}"
 # Worker 静态资源根（acok.sh 本身也托管在这里；compose/env 同源拉取，不再依赖 GitHub raw）
-WORKER_BASE="${WORKER_BASE:-}"
-if [ -z "$WORKER_BASE" ]; then
-  echo "!! 缺少 WORKER_BASE：请传入你的 Cloudflare Worker 域名，例如"
-  echo "   WORKER_BASE=https://azerothcore-ok.xxx.workers.dev curl -fsSL https://azerothcore-ok.xxx.workers.dev/acok.sh | WORKER_BASE=https://azerothcore-ok.xxx.workers.dev bash"
+# 默认已烤进脚本（构建时从 wrangler.toml 的 WORKER_BASE 注入）；自定义域名可传 WORKER_BASE= 覆盖
+WORKER_BASE="${WORKER_BASE:-REPLACE_WORKER_BASE}"
+if [ -z "$WORKER_BASE" ] || echo "$WORKER_BASE" | grep -q "YOUR_SUBDOMAIN"; then
+  echo "!! WORKER_BASE 仍是占位符：请在 deploy/wrangler.toml 的 [vars] 把 WORKER_BASE 改成你的 Worker 真实地址"
+  echo "   （workers.dev 默认形如 https://azerothcore-ok.<你的subdomain>.workers.dev，或你的自定义域名）"
+  echo "   改完重新构建部署即可，玩家再运行：curl -fsSL <你的Worker地址>/acok.sh | bash"
   exit 1
 fi
 
@@ -43,7 +46,8 @@ echo "==> 下载部署文件到 $WORK_DIR"
 curl -fsSL "$WORKER_BASE/docker-compose.override.yml" -o docker-compose.override.yml
 curl -fsSL "$WORKER_BASE/.env.example"                -o .env
 # 官方基础 compose（azerothcore-wotlk 原生编排，我们只覆盖镜像地址）
-curl -fsSL "https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/docker-compose.yml" -o docker-compose.yml
+# 已随部署页在构建时拉下、由 WORKER_BASE 同源托管，运行时不再依赖 GitHub raw（可能墙）
+curl -fsSL "$WORKER_BASE/docker-compose.yml" -o docker-compose.yml
 
 # 2) 用环境变量覆盖 .env（没传则保持 .env.example 默认值）
 # 转义 sed 替换串里的 &（sed 中代表匹配内容）、|（本脚本用作分隔符），
