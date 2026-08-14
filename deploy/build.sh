@@ -126,12 +126,16 @@ else
   exit 1
 fi
 
-echo "==> [3/3] 生成部署用 .env（仅注入 REALM_ADDRESS / IMAGE_NS；SOAP 两行保持模板占位，由 acok.sh 在游戏服本地交互填，不泄露；后台 SOAP 值由你手动设）"
+echo "==> [3/3] 生成部署用 .env 并回填发布模板 .env.example（注入 REALM_ADDRESS / IMAGE_NS；SOAP 两行保持模板占位，由 acok.sh 在游戏服本地交互填，不泄露；后台 SOAP 值由你手动设）"
 cp .env.example .env
 esc() { printf '%s' "$1" | sed 's/[&|]/\\&/g'; }
 # 客户端补丁地址 = WORLD_HOST（realmlist.wtf）
 sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc "$_cfg_world_host")|" .env
 sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc "$_cfg_image_ns")|" .env
+# 关键：acok.sh 实际拉取的是「发布出去的」唯一模板 .env.example，必须把真值也写进它，
+# 否则玩家 curl …/acok.sh | bash 拿到的仍是占位 play.example.com（构建机的 .env 没人拉，填了也白填）。
+sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc "$_cfg_world_host")|" .env.example
+sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc "$_cfg_image_ns")|" .env.example
 # WORKER_BASE 烤进 acok.sh，玩家运行无需再传（自定义域名可传 WORKER_BASE= 覆盖）
 sed -i "s@WORKER_BASE=\"\${WORKER_BASE:-[^\"}]*}\"@WORKER_BASE=\"\${WORKER_BASE:-$(esc "$_cfg_worker_base")}\"@" acok.sh
 
