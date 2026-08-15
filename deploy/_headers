@@ -1,0 +1,9 @@
+# 静态资源（sprite/bg 雪碧图、JS、CSS）由 app.js / index.html 统一加 ?v= 版本戳。
+# 戳不变 = URL 不变 = 命中下面一年的不可变缓存；资源改了 → 戳变 → URL 变 → 必然拉取新文件，
+# 从根本上杜绝「CDN/浏览器缓存了坏图或旧 JS」导致的黑块 / 加载一半。
+/talent-sim/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML 永远取最新（页面结构 / 逻辑更新即时生效，不被 CF 缓存成旧壳）
+/*.html
+  Cache-Control: no-cache

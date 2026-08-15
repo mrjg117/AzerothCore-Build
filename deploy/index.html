@@ -7,11 +7,11 @@
 <!-- 复用天赋模拟器皮肤（暗色 + 金色描边）；仅加载 CSS，JS 懒加载 -->
 <link rel="stylesheet" href="./talent-sim/assets/css/style.css">
 <!-- 首屏优先：天赋模拟器 5 个 JS 在后台预取（不执行），切标签/刷新时从缓存秒加载 -->
-<link rel="prefetch" as="script" href="./talent-sim/assets/js/data.js">
-<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyphs.js">
-<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyph_cn.js">
-<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyph_desc.js">
-<link rel="prefetch" as="script" href="./talent-sim/assets/js/app.js">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/data.js?v=20260815a">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyphs.js?v=20260815a">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyph_cn.js?v=20260815a">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/glyph_desc.js?v=20260815a">
+<link rel="prefetch" as="script" href="./talent-sim/assets/js/app.js?v=20260815a">
 <style>
   /* 滚动条槽位常驻预留：避免滚动条出现/消失导致整页水平位移（点职业/加点时摇晃） */
   html{scrollbar-gutter:stable}
@@ -199,6 +199,9 @@
   var KEY_TAB = "acok_active_tab";
   var KEY_SCROLL = "acok_scroll_y";
   var simLoaded = false;
+  // 资源版本戳：与 app.js 顶部 ASSET_VER、talent-sim/index.html 保持一致；改了资源/JS 后务必同步 bump。
+  var SIM_VER = "20260815a";
+  window.SIM_VER = SIM_VER;
   var simBase = "./talent-sim/assets/js/";
 
   // 资源路径桥：data.js 内的 icon/bg/sprite 是相对 talent-sim/ 目录的路径，
@@ -282,7 +285,7 @@
         document.body.appendChild(s);
         next(i + 1);
       } else {
-        s.src = simBase + step.src;
+        s.src = simBase + step.src + "?v=" + SIM_VER;
         s.async = false;
         s.onload = function () { next(i + 1); };
         s.onerror = function () { console.error("[talent-sim] 加载失败:", step.src); next(i + 1); };

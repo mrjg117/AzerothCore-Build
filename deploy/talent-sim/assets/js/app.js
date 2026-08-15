@@ -2,6 +2,55 @@
 (function () {
   "use strict";
 
+  // ---------- 资源版本与完整性预加载 ----------
+  // 版本戳：与 deploy/index.html、talent-sim/index.html 中加载脚本的 ?v= 保持一致。
+  // 改了 app.js 逻辑或任何 assets/sprites/* 资源内容后，务必同步 bump 此版本号（否则用户长期命中旧缓存）。
+  const ASSET_VER = "20260815a";
+  function cacheBust(url) {
+    if (!url) return url;
+    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "v=" + ASSET_VER;
+  }
+  // sprite/bg 加载状态机：url -> true(成功)/false(失败)/"loading"(进行中)
+  const _spriteState = Object.create(null);
+  const _spriteWaiters = Object.create(null);
+  function _spriteSettle(url, ok) {
+    _spriteState[url] = ok;
+    const ws = _spriteWaiters[url];
+    if (ws) { delete _spriteWaiters[url]; ws.forEach(fn => { try { fn(ok); } catch (e) {} }); }
+  }
+  function preloadSprite(rawUrl, depth) {
+    const url = cacheBust(rawUrl);
+    const cur = _spriteState[url];
+    if (cur === true || cur === false) return;        // 已终态
+    if (cur === "loading") return;                     // 进行中
+    const d = depth || 0;
+    _spriteState[url] = "loading";
+    const img = new Image();
+    img.onload = () => _spriteSettle(url, true);
+    img.onerror = () => {
+      // 单次请求被网络掐断（CF 边缘抖动/加载一半）时自动重试，最多 3 次、指数退避
+      if (d < 3) { setTimeout(() => preloadSprite(rawUrl, d + 1), 250 * (d + 1)); }
+      else _spriteSettle(url, false);
+    };
+    img.src = url;
+  }
+  // 确保某资源就绪后回调 onReady(ok)；已就绪则同步回调。用于 renderTalent 安全绘制图标。
+  function ensureSprite(rawUrl, onReady) {
+    const url = cacheBust(rawUrl);
+    const st = _spriteState[url];
+    if (st === true) { onReady(true); return; }
+    if (st === false) { onReady(false); return; }
+    if (st !== "loading") preloadSprite(rawUrl, 0);
+    (_spriteWaiters[url] = _spriteWaiters[url] || []).push(onReady);
+  }
+  function preloadAllSprites() {
+    if (typeof CLASSES === "undefined") return;
+    CLASSES.forEach(c => c.trees.forEach(t => {
+      if (t.sprite) preloadSprite(t.sprite, 0);
+      if (t.bg) preloadSprite(t.bg, 0);
+    }));
+  }
+
   const LS_BUILDS = "wotlk_builds_v1";
   const LS_GLYPHS = "wotlk_glyphs_v1";
 
@@ -177,46 +226,85 @@
     cls.trees.forEach(t => t.talents.forEach(ta => { maxC = Math.max(maxC, ta.col); maxR = Math.max(maxR, ta.row); }));
     const bodyW = (maxC + 1) * step + 2 * padX;
     const bodyH = (maxR + 1) * step + 2 * padY;
-    // 清除旧树（保留雕文面板），按网格顺序重新插入到雕文页之前
-    layout.querySelectorAll(".tree").forEach(el => el.remove());
+    // 仅移除「旧职业残留」的树（data-tree 不属于当前职业）；当前职业的树保留 DOM，
+    // 走增量更新（updateTreeState），避免加点/移除时整树重建导致的闪烁。
+    layout.querySelectorAll(".tree").forEach(el => {
+      if (!cls.trees.find(t => t.name === el.dataset.tree)) el.remove();
+    });
     cls.trees.forEach(tree => {
-      const tp = treePoints(cls.name, tree.name);
-      const panel = document.createElement("section");
-      panel.className = "tree";
-      const bg = document.createElement("img");
-      bg.className = "tree-bg"; bg.src = tree.bg; bg.alt = ""; bg.loading = "lazy";
-      bg.onerror = () => { bg.style.display = "none"; };
-      panel.appendChild(bg);
-
-      const head = document.createElement("div");
-      head.className = "tree-head";
-      const nameEl = document.createElement("span");
-      nameEl.className = "tree-name"; nameEl.textContent = tree.cn;
-      const right = document.createElement("div");
-      right.className = "tree-head-right";
-      const pts = document.createElement("span");
-      pts.className = "tree-pts"; pts.innerHTML = "已投入 <b>" + tp + "</b> 点";
-      const rbtn = document.createElement("button");
-      rbtn.className = "tree-reset"; rbtn.type = "button"; rbtn.textContent = "重置";
-      rbtn.title = "仅清空「" + tree.cn + "」系列天赋";
-      rbtn.onclick = (e) => { e.stopPropagation(); resetTree(cls, tree); };
-      right.appendChild(pts); right.appendChild(rbtn);
-      head.appendChild(nameEl); head.appendChild(right);
-      panel.appendChild(head);
-
-      const body = document.createElement("div");
-      body.className = "tree-body";
-      body.style.width = bodyW + "px";
-      body.style.height = bodyH + "px";
-      body.style.padding = padY + "px " + padX + "px";
-      tree.talents.forEach(tal => body.appendChild(renderTalent(cls, tree, tal)));
-      drawPrereqLines(cls, tree, body);
-      panel.appendChild(body);
-      layout.insertBefore(panel, glyphPanel);
+      let panel = null;
+      const existing = layout.querySelectorAll(".tree");
+      for (const el of existing) { if (el.dataset.tree === tree.name) { panel = el; break; } }
+      if (!panel) {
+        panel = buildTreePanel(cls, tree, step, padX, padY, bodyW, bodyH);
+        layout.insertBefore(panel, glyphPanel);
+      } else {
+        updateTreeState(cls, tree, panel);
+      }
     });
     // 固定雕文页/布局高度 = 理论树高度（head 约 42px + bodyH），不依赖 offsetHeight。
     // 避免在集成页离屏构建时 offsetHeight=0 把 --tree-h 压成 0px 导致天赋树/雕文栏空白。
     document.documentElement.style.setProperty("--tree-h", (bodyH + 42) + "px");
+  }
+
+  // 构建单棵天赋树的 DOM（首次进入某职业或切职业时调用一次；之后仅增量更新，不重建）
+  function buildTreePanel(cls, tree, step, padX, padY, bodyW, bodyH) {
+    const panel = document.createElement("section");
+    panel.className = "tree";
+    panel.dataset.tree = tree.name;
+    const bg = document.createElement("img");
+    bg.className = "tree-bg"; bg.src = cacheBust(tree.bg); bg.alt = ""; bg.loading = "lazy";
+    bg.onerror = () => { bg.style.display = "none"; };
+    panel.appendChild(bg);
+
+    const head = document.createElement("div");
+    head.className = "tree-head";
+    const nameEl = document.createElement("span");
+    nameEl.className = "tree-name"; nameEl.textContent = tree.cn;
+    const right = document.createElement("div");
+    right.className = "tree-head-right";
+    const pts = document.createElement("span");
+    pts.className = "tree-pts"; pts.innerHTML = "已投入 <b>" + treePoints(cls.name, tree.name) + "</b> 点";
+    const rbtn = document.createElement("button");
+    rbtn.className = "tree-reset"; rbtn.type = "button"; rbtn.textContent = "重置";
+    rbtn.title = "仅清空「" + tree.cn + "」系列天赋";
+    rbtn.onclick = (e) => { e.stopPropagation(); resetTree(cls, tree); };
+    right.appendChild(pts); right.appendChild(rbtn);
+    head.appendChild(nameEl); head.appendChild(right);
+    panel.appendChild(head);
+
+    const body = document.createElement("div");
+    body.className = "tree-body";
+    body.style.width = bodyW + "px";
+    body.style.height = bodyH + "px";
+    body.style.padding = padY + "px " + padX + "px";
+    tree.talents.forEach(tal => body.appendChild(renderTalent(cls, tree, tal)));
+    drawPrereqLines(cls, tree, body);
+    panel.appendChild(body);
+    return panel;
+  }
+
+  // 增量更新已存在的树：仅刷新点数文案、各天赋状态 class/rank 徽章与前置连线，不重建 DOM（防闪烁）
+  function updateTreeState(cls, tree, panel) {
+    const pts = panel.querySelector(".tree-pts");
+    if (pts) pts.innerHTML = "已投入 <b>" + treePoints(cls.name, tree.name) + "</b> 点";
+    const body = panel.querySelector(".tree-body");
+    if (!body) return;
+    body.querySelectorAll(".talent").forEach(el => {
+      const tal = talentByName(tree, el.dataset.tal);
+      if (!tal) return;
+      const r = ((state.builds[cls.name] && state.builds[cls.name][tree.name] && state.builds[cls.name][tree.name][tal.name]) || 0);
+      const can = canAdd(cls, tree, tal).ok;
+      el.className = "talent" + (r > 0 ? " spent" : "") + (r >= tal.maxRank ? " maxed" : "") + (r === 0 && !can ? " locked" : (r === 0 && can ? " avail" : ""));
+      let rank = el.querySelector(".rank");
+      if (r > 0) {
+        if (!rank) { rank = document.createElement("span"); rank.className = "rank"; el.appendChild(rank); }
+        rank.textContent = r + "/" + tal.maxRank;
+      } else if (rank) {
+        rank.remove();
+      }
+    });
+    drawPrereqLines(cls, tree, body);
   }
 
   function renderTalent(cls, tree, tal) {
@@ -224,6 +312,7 @@
     const can = canAdd(cls, tree, tal).ok;
     const el = document.createElement("div");
     el.className = "talent" + (r > 0 ? " spent" : "") + (r >= tal.maxRank ? " maxed" : "") + (r === 0 && !can ? " locked" : (r === 0 && can ? " avail" : ""));
+    el.setAttribute("data-tal", tal.name);
     const cs = getComputedStyle(document.documentElement);
     const step = parseFloat(cs.getPropertyValue("--step")) || 58;
     const padX = parseFloat(cs.getPropertyValue("--pad-x")) || 18;
@@ -235,9 +324,23 @@
 
     const icon = document.createElement("div");
     icon.className = "icon"; icon.alt = zhName(tal); icon.setAttribute("role", "img");
-    icon.style.backgroundImage = "url('" + tree.sprite + "')";
     icon.style.backgroundPosition = (-(tal.col) * 48) + "px " + (-(tal.row) * 48) + "px";
     icon.style.backgroundRepeat = "no-repeat";
+    // 图标完整性：等 sprite 真正加载成功（onload）后才绘制，避免异步加载中途露黑底；
+    // 加载失败则降级为浅灰占位（.icon-broken），不再显示纯黑块。
+    ensureSprite(tree.sprite, ok => {
+      if (ok) {
+        icon.style.backgroundImage = "url('" + cacheBust(tree.sprite) + "')";
+      } else {
+        icon.classList.add("icon-broken");
+        if (!icon.querySelector(".broken-tip")) {
+          const tip = document.createElement("span");
+          tip.className = "broken-tip";
+          tip.textContent = "图";
+          icon.appendChild(tip);
+        }
+      }
+    });
     el.appendChild(icon);
 
     if (r > 0) {
@@ -508,6 +611,7 @@
   }
 
   // ---------- init ----------
+  preloadAllSprites();
   applyShared();
   setupControls();
   render();
