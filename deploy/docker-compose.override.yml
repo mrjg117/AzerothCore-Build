@@ -21,6 +21,7 @@ services:
     image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-extra-config:latest
     environment:
       - SOAP_PASSWORD=${SOAP_PASSWORD}
+      - SOAP_LOGIN=${SOAP_LOGIN}
     volumes:
       - ./env/dist/etc:/out
     restart: "no"
