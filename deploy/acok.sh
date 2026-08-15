@@ -222,10 +222,19 @@ wz_history(){
 wz_env(){
   echo; echo "--- ② 部署目录与外网地址（输入 b 返回上一步）---"
   local v
+  # 默认值从发布的 .env.example 取（build.sh 已把 WORLD_HOST/IMAGE_NS 烤进去），
+  # 避免向导显示空默认、甚至回车被 play.example.com 覆盖真值。
+  if [ -z "$REALM_ADDRESS" ] || [ -z "$IMAGE_NS" ]; then
+    _env_tpl="$(curl -fsSL --max-time 20 "$WORKER_BASE/.env.example" 2>/dev/null)"
+    [ -z "$REALM_ADDRESS" ] && REALM_ADDRESS="$(printf '%s\n' "$_env_tpl" | grep '^REALM_ADDRESS=' | cut -d= -f2-)"
+    [ -z "$IMAGE_NS" ] && IMAGE_NS="$(printf '%s\n' "$_env_tpl" | grep '^IMAGE_NS=' | cut -d= -f2-)"
+  fi
+  REALM_ADDRESS="${REALM_ADDRESS:-play.example.com}"
+  IMAGE_NS="${IMAGE_NS:-ghcr.io/mrjg117}"
   v="$(ask_tty "部署目录 [$WORK_DIR]: " "${WORK_DIR:-/opt/azerothcore-ok}")"; if maybe_back "$v"; then return 1; fi; WORK_DIR="${v:-/opt/azerothcore-ok}"
   SOAP_CREDS="$WORK_DIR/.soap_creds"; DB_CREDS="$WORK_DIR/.db_creds"
-  v="$(ask_tty "对外地址(域名或IP) [$REALM_ADDRESS]: " "${REALM_ADDRESS:-play.example.com}")"; if maybe_back "$v"; then return 1; fi; REALM_ADDRESS="${v:-play.example.com}"
-  v="$(ask_tty "镜像命名空间 [$IMAGE_NS]: " "${IMAGE_NS:-ghcr.io/mrjg117}")"; if maybe_back "$v"; then return 1; fi; IMAGE_NS="${v:-ghcr.io/mrjg117}"
+  v="$(ask_tty "对外地址(域名或IP) [$REALM_ADDRESS]: " "$REALM_ADDRESS")"; if maybe_back "$v"; then return 1; fi; REALM_ADDRESS="${v:-$REALM_ADDRESS}"
+  v="$(ask_tty "镜像命名空间 [$IMAGE_NS]: " "$IMAGE_NS")"; if maybe_back "$v"; then return 1; fi; IMAGE_NS="${v:-$IMAGE_NS}"
   return 0
 }
 wz_creds(){

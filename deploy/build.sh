@@ -2,13 +2,14 @@
 # ============================================================
 # build.sh  ——  Cloudflare Worker 构建 + 部署命令（也可本地跑）
 # ------------------------------------------------------------
-# 仓库只提交「部署源文件」；补丁压缩包、.env、docker-compose.yml 在构建时现生成，不进 git 仓库。
+# 仓库只提交「部署源文件」；补丁压缩包、docker-compose.yml 在构建时现生成，不进 git 仓库。
+# .env.example 是提交的模板，构建时回填真值后随 Worker 静态资源发布（acok.sh 拉的就是它）。
 #
 # 部署（Git 集成，无需 CLI）：
 #   在 Cloudflare 后台关联本仓库，构建命令设为 `bash deploy/build.sh`，推送即自动构建并部署。
 #
 # 单点配置：全部非机密配置写在 deploy/wrangler.toml 的 [vars] 里，提交即生效。
-#   - REALM_ADDRESS / IMAGE_NS / WORKER_BASE 由本脚本读取并注入 .env 与 acok.sh。
+#   - REALM_ADDRESS / IMAGE_NS / WORKER_BASE 由本脚本读取并注入 .env.example 与 acok.sh。
 #   - SOAP_LOGIN / SOAP_PASSWORD 不在此处理：请在 Cloudflare 后台 Variables & Secrets 手动设置，
 #     build.sh 部署只跑 `wrangler deploy`（不加 --var），Worker 直接用你后台设的值。
 # ============================================================
@@ -126,14 +127,10 @@ else
   exit 1
 fi
 
-echo "==> [3/3] 生成部署用 .env 并回填发布模板 .env.example（注入 REALM_ADDRESS / IMAGE_NS；SOAP 两行保持模板占位，由 acok.sh 在游戏服本地交互填，不泄露；后台 SOAP 值由你手动设）"
-cp .env.example .env
+echo "==> [3/3] 回填发布模板 .env.example（注入 REALM_ADDRESS / IMAGE_NS；SOAP 两行保持模板占位，由 acok.sh 在游戏服本地交互填，不泄露；后台 SOAP 值由你手动设）"
 esc() { printf '%s' "$1" | sed 's/[&|]/\\&/g'; }
-# 客户端补丁地址 = WORLD_HOST（realmlist.wtf）
-sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc "$_cfg_world_host")|" .env
-sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc "$_cfg_image_ns")|" .env
-# 关键：acok.sh 实际拉取的是「发布出去的」唯一模板 .env.example，必须把真值也写进它，
-# 否则玩家 curl …/acok.sh | bash 拿到的仍是占位 play.example.com（构建机的 .env 没人拉，填了也白填）。
+# 客户端补丁地址 = WORLD_HOST（realmlist.wtf）。只写「发布出去」的 .env.example：
+# acok.sh 拉的就是它；构建机本地若另写 .env 没人拉，填了也白填（以前就踩过这坑，已删）。
 sed -i "s|^REALM_ADDRESS=.*|REALM_ADDRESS=$(esc "$_cfg_world_host")|" .env.example
 sed -i "s|^IMAGE_NS=.*|IMAGE_NS=$(esc "$_cfg_image_ns")|" .env.example
 # WORKER_BASE 烤进 acok.sh，玩家运行无需再传（自定义域名可传 WORKER_BASE= 覆盖）
