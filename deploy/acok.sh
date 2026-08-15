@@ -241,20 +241,29 @@ wz_creds(){
   echo; echo "--- ③ 凭据（GM 与 SOAP 凭据 / 数据库，输入 b 返回）---"
   local v
   # GM 游戏账号（给人登录游戏、管理服务器）
-  v="$(ask_tty "GM 账号名 [acok]: " "${GM_NAME:-acok}")"; if maybe_back "$v"; then return 1; fi; GM_NAME="${v:-acok}"
-  v="$(ask_tty "GM 登录密码(默认 <主机名><4位日期>，留空用默认): " "" -s)"; if maybe_back "$v"; then return 1; fi
+  v="$(ask_tty "GM 账号名 [${GM_NAME:-acok}]: " "${GM_NAME:-acok}")"; if maybe_back "$v"; then return 1; fi; GM_NAME="${v:-acok}"
+  v="$(ask_tty "GM 登录密码 [$(default_gm_pass)]: " "" -s)"; if maybe_back "$v"; then return 1; fi
   [ -z "$v" ] && v="$(default_gm_pass)"; GM_PASS="$v"
-  # SOAP 机器账号（专供 Cloudflare Worker ↔ worldserver 鉴权，须与 CF 后台一致）
-  v="$(ask_tty "SOAP 账号名 [acok]: " "${SOAP_LOGIN:-acok}")"; if maybe_back "$v"; then return 1; fi; SOAP_LOGIN="${v:-acok}"
-  # 碰撞守卫：GM 与 SOAP 不能同名（同 realm 账号名唯一）
-  while [ "$SOAP_LOGIN" = "$GM_NAME" ]; do
-    c_warn "SOAP 账号名不能与 GM 账号名($GM_NAME)相同"
-    v="$(ask_tty "SOAP 账号名 [acok]: " "${SOAP_LOGIN:-acok}")"; if maybe_back "$v"; then return 1; fi; SOAP_LOGIN="${v:-acok}"
+  # SOAP 机器账号（专供 Worker ↔ worldserver 鉴权）
+  while :; do
+    v="$(ask_tty "SOAP 账号名: " "")"; if maybe_back "$v"; then return 1; fi
+    [ -n "$v" ] && break
+    c_warn "SOAP 账号名不能为空"
   done
-  v="$(ask_tty "SOAP 密码(须与 CF 后台 SOAP_PASSWORD 一致，默认 <主机名><4位日期>，留空用默认): " "" -s)"; if maybe_back "$v"; then return 1; fi
-  [ -z "$v" ] && v="$(default_gm_pass)"; SOAP_PASSWORD="$v"
-  v="$(ask_tty "数据库 root 密码 [$DB_PW]: " "${DB_PW:-AcokDbRoot2026!}")"; if maybe_back "$v"; then return 1; fi; DB_PW="${v:-AcokDbRoot2026!}"
-  c_warn "SOAP 密码须与 Cloudflare 后台 Variables & Secrets 的 SOAP_PASSWORD 一致，否则注册接口认证失败。"
+  SOAP_LOGIN="$v"
+  # 同名冲突提示：GM 与 SOAP 账号名不能相同（同 realm 账号名唯一）
+  while [ "$SOAP_LOGIN" = "$GM_NAME" ]; do
+    c_warn "SOAP 账号名不能与 GM 账号名($GM_NAME)相同，请换一个"
+    v="$(ask_tty "SOAP 账号名: " "")"; if maybe_back "$v"; then return 1; fi
+    [ -n "$v" ] && SOAP_LOGIN="$v" || { c_warn "SOAP 账号名不能为空"; continue; }
+  done
+  while :; do
+    v="$(ask_tty "SOAP 密码: " "" -s)"; if maybe_back "$v"; then return 1; fi
+    [ -n "$v" ] && break
+    c_warn "SOAP 密码不能为空"
+  done
+  SOAP_PASSWORD="$v"
+  v="$(ask_tty "数据库 root 密码 [AcokDbRoot2026!]: " "${DB_PW:-AcokDbRoot2026!}")"; if maybe_back "$v"; then return 1; fi; DB_PW="${v:-AcokDbRoot2026!}"
   return 0
 }
 wz_plan(){
@@ -316,7 +325,7 @@ wz_deploy(){
   c_ok "部署完成！"
   c_info "世界服端口 8085 / 3724；注册 SOAP 7878；玩家连接地址 $REALM"
   c_info "GM 账号: $GM_NAME   密码: $GM_PASS"
-  c_info "SOAP 账号(Worker 鉴权): $SOAP_LOGIN   密码: $SOAP_PASSWORD（须与 CF 后台一致）"
+  c_info "SOAP 账号(Worker 鉴权): $SOAP_LOGIN   密码: $SOAP_PASSWORD"
   return 0
 }
 wz_maps(){
@@ -356,8 +365,7 @@ import_maps(){
   c_ok "地图数据已导入（卷 ac-client-data）"
 }
 import_config(){
-  c_warn "重拉配置：仅 worldserver.conf / playerbots.conf / mod_item_affixes.conf 被覆盖重写；其余官方默认配置不受影响。"
-  c_warn "关键配置(SOAP 等)由持久化 .env 变量注入，重拉后保持一致、不冲。"
+  c_warn "重拉配置将覆盖 worldserver.conf / playerbots.conf / mod_item_affixes.conf"
   local bk="./env/dist/etc.bak.$(date +%s)"
   mkdir -p ./env/dist
   cp -a ./env/dist/etc "$bk" 2>/dev/null && c_ok "已备份到 $bk" || c_warn "备份失败（可能尚未生成配置）"
@@ -416,7 +424,7 @@ creds_menu(){
   while true; do
     echo; echo "=== 5 凭据管理 ==="
     echo "1) 改 SOAP 账号名(Worker 鉴权)"
-    echo "2) 改 SOAP 密码(须与 CF 后台一致)"
+    echo "2) 改 SOAP 密码"
     echo "3) 改数据库 root 密码"
     echo "4) 查找历史安装位置"
     echo "5) 账号管理（新建普通 / 新建 GM 带等级 / 改 GM 等级）"
@@ -437,14 +445,14 @@ change_soap_login(){
   SOAP_LOGIN="$v"
   set_env SOAP_LOGIN "$SOAP_LOGIN"
   printf 'SOAP_LOGIN=%s\nSOAP_PASSWORD=%s\n' "$SOAP_LOGIN" "$SOAP_PASSWORD" > "$SOAP_CREDS" && chmod 600 "$SOAP_CREDS"
-  c_ok "已更新。需重拉配置(3.2)+重启worldserver(4.2)生效；Cloudflare 后台 SOAP_LOGIN 也须同步。"
+  c_ok "已更新。需重拉配置(3.2)+重启worldserver(4.2)生效。"
 }
 change_soap_pass(){
   local v; v="$(ask_s '新 SOAP 密码: ')"; [ -z "$v" ] && return
   SOAP_PASSWORD="$v"
   set_env SOAP_PASSWORD "$SOAP_PASSWORD"
   printf 'SOAP_LOGIN=%s\nSOAP_PASSWORD=%s\n' "$SOAP_LOGIN" "$SOAP_PASSWORD" > "$SOAP_CREDS" && chmod 600 "$SOAP_CREDS"
-  c_ok "已更新本地。需重拉配置(3.2)+重启(4.2)；Cloudflare 后台 SOAP_PASSWORD 须设为同一值，注册接口才通过。"
+  c_ok "已更新本地。需重拉配置(3.2)+重启(4.2)生效。"
 }
 change_db_pass(){
   local v; v="$(ask_s '新数据库 root 密码: ')"; [ -z "$v" ] && return
