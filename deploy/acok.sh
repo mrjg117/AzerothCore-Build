@@ -49,15 +49,26 @@ ask_s(){ ask_tty "$1" "" -s; }
 ask_tty(){
   local p="$1" d="${2:-}" s="${3:-}" v=""
   if [ -c /dev/tty ]; then
-    if [ -n "$s" ]; then read -rs -p "$p" v < /dev/tty 2>/dev/null; else read -r -p "$p" v < /dev/tty 2>/dev/null; fi
-    [ -n "$s" ] && echo >/dev/tty 2>/dev/null
+    # read -p 在 curl|bash 的非交互 bash 下不显示提示语，先显式输出到 /dev/tty
+    printf '%s' "$p" >/dev/tty
+    if [ -n "$s" ]; then
+      read -rs v </dev/tty
+      printf '\n' >/dev/tty
+    else
+      read -r v </dev/tty
+    fi
   fi
   printf '%s' "${v:-$d}"
 }
 maybe_back(){ [ "$1" = "b" ] || [ "$1" = "B" ]; }
 confirm(){
   local p="$1" expect="${2:-YES}" a=""
-  if [ -c /dev/tty ]; then read -r -p "$p " a < /dev/tty; else read -r -p "$p " a; fi
+  if [ -c /dev/tty ]; then
+    printf '%s ' "$p" >/dev/tty
+    read -r a </dev/tty
+  else
+    read -r -p "$p " a
+  fi
   [ "$a" = "$expect" ]
 }
 set_env(){
