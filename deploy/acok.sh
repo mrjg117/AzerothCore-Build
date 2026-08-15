@@ -40,8 +40,10 @@ c_err() { printf '\033[31m[错误]\033[0m %s\n' "$*"; }
 c_ok()  { printf '\033[32m[完成]\033[0m %s\n' "$*"; }
 
 # 菜单模式：从 stdin 读取
-ask(){ local p="$1" d="${2:-}" v=""; read -r -p "$p" v; printf '%s' "${v:-$d}"; }
-ask_s(){ local p="$1" v=""; read -rs -p "$p" v; echo; printf '%s' "$v"; }
+# 统一读取入口：stdin 为终端时从 stdin 读；curl|bash 时 stdin 是脚本管道(EOF)，
+# 改从 /dev/tty 读（与 ask_tty 一致），否则菜单会读 EOF 死循环「无效选择」。
+ask(){ ask_tty "$1" "${2:-}"; }
+ask_s(){ ask_tty "$1" "" -s; }
 
 # 向导模式：从 /dev/tty 读取（curl|bash 时 stdin 是脚本本身，普通 read 会吃掉脚本内容）
 ask_tty(){
