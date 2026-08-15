@@ -185,13 +185,20 @@ set_ns(){
   [ -f "$WORK_DIR/.env" ] && set_env IMAGE_NS "$IMAGE_NS"
 }
 speed_test_all(){
-  c_info "逐个测速（拉取 ac-extra-config 小镜像；若已缓存则很快，非真实网速）..."
+  c_info "基础外网探针：docker pull hello-world（验证 docker daemon 能否拉外网/是否缺代理）..."
+  if docker pull hello-world >/dev/null 2>&1; then
+    c_ok "docker daemon 基础外网 OK"
+  else
+    c_err "docker daemon 拉 hello-world 失败——大概率 docker daemon 未配置代理（curl 能连但 docker 不能）"
+    c_warn "请给 docker daemon 配代理：写 /etc/systemd/system/docker.service.d/http-proxy.conf 后 systemctl daemon-reload && systemctl restart docker"
+  fi
+  c_info "逐个测速（拉取 ac-wotlk-worldserver 服务镜像；首次较大请稍候）..."
   for ns in ghcr.io/mrjg117 ghcr.1ms.run/mrjg117 ghcr.nju.edu.cn/mrjg117 ghcr.m.daocloud.io/mrjg117; do
     speed_test_one "$ns"
   done
 }
 speed_test_one(){
-  local ns="$1" img="${1}/ac-extra-config:latest" start end dt
+  local ns="$1" img="${1}/ac-wotlk-worldserver:latest" start end dt
   start=$(date +%s.%N)
   if docker pull "$img" >/dev/null 2>&1; then
     end=$(date +%s.%N)
