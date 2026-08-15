@@ -127,6 +127,18 @@ else
   exit 1
 fi
 
+echo "==> [2.5/3] 拉取官方 conf/dist/env.ac（compose 里 ac-worldserver/ac-authserver 的 env_file 硬引用，缺失会导致 docker compose up 报 env.ac not found。只拉这一个运行期有用的文件；env.docker/config.sh/config.cmake 是编译期死重，不拉）"
+# 运行部署脚本（acok.sh）的玩家服务器可能在墙内，访问 raw.githubusercontent.com 会被墙；
+# 故把 env.ac 在「构建部署页时」由构建机一次性拉下，随 deploy/ 一起交给 Cloudflare 静态托管。
+mkdir -p conf/dist
+if curl -fsSL "https://raw.githubusercontent.com/azerothcore/azerothcore-wotlk/master/conf/dist/env.ac" -o conf/dist/env.ac; then
+  echo "    官方 conf/dist/env.ac 已拉取 -> deploy/conf/dist/env.ac（随 Worker 静态资源发布）"
+else
+  echo "    !! 拉取官方 conf/dist/env.ac 失败：构建机需能访问 GitHub。" >&2
+  echo "    !! 请手动放置一份 env.ac 到 deploy/conf/dist/ 后再部署。" >&2
+  exit 1
+fi
+
 echo "==> [3/3] 回填发布模板 .env.example（注入 REALM_ADDRESS / IMAGE_NS；SOAP 两行保持模板占位，由 acok.sh 在游戏服本地交互填，不泄露；后台 SOAP 值由你手动设）"
 esc() { printf '%s' "$1" | sed 's/[&|]/\\&/g'; }
 # 客户端补丁地址 = WORLD_HOST（realmlist.wtf）。只写「发布出去」的 .env.example：

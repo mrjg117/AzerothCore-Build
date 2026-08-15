@@ -285,6 +285,12 @@ wz_deploy(){
   curl -fsSL "$WORKER_BASE/docker-compose.override.yml" -o docker-compose.override.yml
   curl -fsSL "$WORKER_BASE/.env.example" -o .env
   curl -fsSL "$WORKER_BASE/docker-compose.yml" -o docker-compose.yml
+  # 官方 compose 硬引用 conf/dist/env.ac 作为 worldserver/authserver 的 env_file；
+  # 缺失会导致 docker compose up 报 env.ac not found。只拉这一个运行期有用的文件。
+  mkdir -p conf/dist
+  if ! curl -fsSL "$WORKER_BASE/conf/dist/env.ac" -o conf/dist/env.ac; then
+    c_err "下载 conf/dist/env.ac 失败（配置来源缺失，部署无法继续）"; return 1
+  fi
   [ -n "$REALM_ADDRESS" ] && set_env REALM_ADDRESS "$REALM_ADDRESS"
   [ -n "$IMAGE_NS" ] && set_env IMAGE_NS "$IMAGE_NS"
   set_env SOAP_LOGIN "$SOAP_LOGIN"
@@ -296,9 +302,10 @@ wz_deploy(){
     local bk="$WORK_DIR.bak.$(date +%s)"; mkdir -p "$bk"; cp -a .env .soap_creds .db_creds "$bk"/ 2>/dev/null || true
     docker compose down -v || true
   fi
-  pull_with_eta
+  pull_with_eta || return 1
   c_info "启动服务 (docker compose up -d) ... 首次启动数据库初始化约 1-3 分钟"
-  docker compose up -d
+  # 只起核心栈；地图(ac-client-data-init)随 worldserver 依赖自动导入；配置(ac-extra-config)改部署后可选
+  docker compose up -d ac-worldserver ac-authserver ac-database ac-db-import
   c_info "等待 worldserver 并创建账号（GM=$GM_NAME / SOAP=$SOAP_LOGIN）..."
   for _k in $(seq 1 36); do docker compose exec -T ac-worldserver acore account list >/dev/null 2>&1 && break; sleep 5; done
   # GM 游戏账号（给人登录游戏、管理服务器）
@@ -318,17 +325,19 @@ wz_deploy(){
     && c_ok "realm 地址已更新" \
     || c_warn "realmlist 未就绪，请手动: UPDATE acore_auth.realmlist SET address='$REALM' WHERE id=1;"
   c_ok "部署完成！"
+  echo
+  if confirm "是否现在导入配置(启用 SOAP 注册通道等)? [y/N]: " "y"; then import_config; else c_info "可稍后在『3 配置与维护 → 导入配置』中导入"; fi
   c_info "世界服端口 8085 / 3724；注册 SOAP 7878；玩家连接地址 $REALM"
   c_info "GM 账号: $GM_NAME   密码: $GM_PASS"
   c_info "SOAP 账号(Worker 鉴权): $SOAP_LOGIN   密码: $SOAP_PASSWORD"
   return 0
 }
 wz_maps(){
-  echo; echo "--- ⑤ 地图数据 ---"
+  echo; echo "--- ⑤ 地图数据（随部署按官方流程已导入）---"
   if docker volume inspect ac-client-data >/dev/null 2>&1; then
-    c_info "地图数据卷(ac-client-data)已存在"
+    c_info "地图已随部署导入（卷 ac-client-data 已存在）"
   else
-    c_warn "未检测到地图数据卷，是否现在拉取？(y/N)"
+    c_warn "未检测到地图数据卷（部署时导入可能未完成或失败），是否现在补拉？(y/N)"
     if confirm "拉取地图? [y/N]: " "y"; then import_maps; else c_info "可稍后在『3 配置与维护 → 导入地图』中拉取"; fi
   fi
   return 0
@@ -369,7 +378,7 @@ import_config(){
   c_ok "配置已重拉。worldserver 需重启(4.2)或热重载(4.1)生效。"
 }
 rerun_db_import(){ c_info "重跑 db-import ..."; docker compose up ac-db-import; c_ok "完成"; }
-full_redeploy(){ c_info "完整重部署：拉最新镜像并重建（保留数据卷）..."; pull_with_eta; docker compose up -d; c_ok "完成"; }
+full_redeploy(){ c_info "完整重部署：拉最新镜像并重建（保留数据卷）..."; pull_with_eta || return 1; docker compose up -d ac-worldserver ac-authserver ac-database ac-db-import; c_ok "完成"; }
 
 # ---------- 4 服务操作 ----------
 svc_menu(){
@@ -491,8 +500,12 @@ account_mgmt(){
 pull_with_eta(){
   local start end
   start=$(date +%s)
-  c_info "开始拉取镜像（docker 原生进度含实时 ETA）..."
-  docker compose pull
+  c_info "开始拉取核心镜像（docker 原生进度含实时 ETA）..."
+  # 只拉核心栈 + 地图；配置镜像(ac-extra-config)改部署后可选，不在此强制拉取
+  if ! docker compose pull ac-worldserver ac-authserver ac-database ac-db-import ac-client-data-init; then
+    c_err "核心镜像拉取失败（检查网络/镜像源/IMAGE_NS，确认 ac-maps 等镜像已公开）"
+    return 1
+  fi
   end=$(date +%s)
   c_ok "拉取完成，用时 $((end-start)) 秒"
 }

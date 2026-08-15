@@ -6,9 +6,6 @@ services:
     image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-wotlk-worldserver:latest
     environment:
       - REALM_ADDRESS=${REALM_ADDRESS}
-    depends_on:
-      ac-extra-config:
-        condition: service_completed_successfully
   ac-authserver:
     image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-wotlk-authserver:latest
   ac-db-import:
