@@ -39,24 +39,22 @@ c_warn(){ printf '\033[33m[警告]\033[0m %s\n' "$*"; }
 c_err() { printf '\033[31m[错误]\033[0m %s\n' "$*"; }
 c_ok()  { printf '\033[32m[完成]\033[0m %s\n' "$*"; }
 
-# 菜单模式：从 stdin 读取
-# 统一读取入口：stdin 为终端时从 stdin 读；curl|bash 时 stdin 是脚本管道(EOF)，
-# 改从 /dev/tty 读（与 ask_tty 一致），否则菜单会读 EOF 死循环「无效选择」。
+# 统一读取入口：文件模式(stdin 即终端)直接读 stdin；curl|bash 管道模式(stdin 是脚本本身)
+# 改从 /dev/tty 读。提示语固定输出到终端(/dev/tty 或回退 stdout)，不污染命令替换捕获的返回值。
 ask(){ ask_tty "$1" "${2:-}"; }
 ask_s(){ ask_tty "$1" "" -s; }
 
-# 向导模式：从 /dev/tty 读取（curl|bash 时 stdin 是脚本本身，普通 read 会吃掉脚本内容）
+# 交互读取：文件模式下 stdin 本身就是终端，直接读 stdin 最稳；
+# 仅在 [ -t 0 ] 为假(管道)且 /dev/tty 存在时才改读 /dev/tty。
 ask_tty(){
   local p="$1" d="${2:-}" s="${3:-}" v=""
-  if [ -c /dev/tty ]; then
-    # read -p 在 curl|bash 的非交互 bash 下不显示提示语，先显式输出到 /dev/tty
-    printf '%s' "$p" >/dev/tty
-    if [ -n "$s" ]; then
-      read -rs v </dev/tty
-      printf '\n' >/dev/tty
-    else
-      read -r v </dev/tty
-    fi
+  local src=/dev/stdin
+  if [ ! -t 0 ] && [ -c /dev/tty ]; then src=/dev/tty; fi
+  printf '%s' "$p" >/dev/tty 2>/dev/null || printf '%s' "$p"
+  if [ -n "$s" ]; then
+    read -rs v <"$src" 2>/dev/null; printf '\n' >/dev/tty 2>/dev/null
+  else
+    read -r v <"$src" 2>/dev/null
   fi
   printf '%s' "${v:-$d}"
 }
