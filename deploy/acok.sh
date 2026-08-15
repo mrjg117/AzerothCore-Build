@@ -42,7 +42,7 @@ c_ok()  { printf '\033[32m[完成]\033[0m %s\n' "$*"; }
 # 统一读取入口：文件模式(stdin 即终端)直接读 stdin；curl|bash 管道模式(stdin 是脚本本身)
 # 改从 /dev/tty 读。提示语固定输出到终端(/dev/tty 或回退 stdout)，不污染命令替换捕获的返回值。
 ask(){ ask_tty "$1" "${2:-}"; }
-ask_s(){ ask_tty "$1" "" -s; }
+ask_s(){ ask_tty "$1" ""; }
 
 # 交互读取：文件模式下 stdin 本身就是终端，直接读 stdin 最稳；
 # 仅在 [ -t 0 ] 为假(管道)且 /dev/tty 存在时才改读 /dev/tty。
@@ -100,6 +100,10 @@ ensure_docker(){
 }
 find_history(){
   local cand="/opt/azerothcore-ok $HOME/azerothcore-ok /srv/azerothcore-ok /root/azerothcore-ok $(pwd)"
+  # 历史装在非标准路径时，从运行中的容器 label 精确定位其 compose 工作目录
+  local from_docker
+  from_docker="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' ac-worldserver 2>/dev/null)"
+  if [ -n "$from_docker" ] && [ -d "$from_docker" ]; then HISTORY_DIR="$from_docker"; return 0; fi
   for d in $cand; do
     [ -d "$d" ] || continue
     if [ -f "$d/.soap_creds" ] || ( [ -f "$d/.env" ] && grep -q '^IMAGE_NS=ghcr.io/mrjg117' "$d/.env" 2>/dev/null ); then
@@ -201,21 +205,29 @@ speed_test_one(){
 # ---------- 2 安装向导 ----------
 run_wizard(){
   ensure_docker || return 1
-  local steps=(wz_history wz_env wz_creds wz_plan wz_deploy wz_maps)
+  local steps=(wz_history wz_env wz_creds wz_deploy wz_maps)
   local wi=0 n=${#steps[@]}
   while [ $wi -lt $n ]; do
     if "${steps[$wi]}"; then wi=$((wi+1)); else wi=$((wi-1)); [ $wi -lt 0 ] && wi=0; fi
   done
 }
 wz_history(){
-  echo; echo "--- ① 检测历史安装 ---"
+  echo; echo "--- ① 检测历史安装与部署方案 ---"
   if find_history; then
     c_info "发现历史安装：$HISTORY_DIR"
     load_creds "$HISTORY_DIR"
-    c_info "已载入历史凭据（后续步骤可覆盖）"
+    c_info "已载入历史凭据"
+    echo "  1) 原地更新（保留一切数据，仅拉最新镜像并重起）"
+    echo "  2) 清理重装（销毁数据库与所有数据，全新开始）"
+    local v; v="$(ask_tty "选择 [1]: " "1")"; if maybe_back "$v"; then return 1; fi
+    case "$v" in
+      2)
+        if confirm "确认清理重装？将销毁玩家账号/角色等所有数据！输入 YES 继续:" "YES"; then PLAN="clean"; else PLAN="update"; fi ;;
+      *) PLAN="update" ;;
+    esac
   else
     c_info "未发现历史安装，将执行全新安装"
-    HISTORY_DIR=""
+    HISTORY_DIR=""; PLAN="fresh"
   fi
   return 0
 }
@@ -242,7 +254,7 @@ wz_creds(){
   local v
   # GM 游戏账号（给人登录游戏、管理服务器）
   v="$(ask_tty "GM 账号名 [${GM_NAME:-acok}]: " "${GM_NAME:-acok}")"; if maybe_back "$v"; then return 1; fi; GM_NAME="${v:-acok}"
-  v="$(ask_tty "GM 登录密码 [$(default_gm_pass)]: " "" -s)"; if maybe_back "$v"; then return 1; fi
+  v="$(ask_tty "GM 登录密码 [$(default_gm_pass)]: " "")"; if maybe_back "$v"; then return 1; fi
   [ -z "$v" ] && v="$(default_gm_pass)"; GM_PASS="$v"
   # SOAP 机器账号（专供 Worker ↔ worldserver 鉴权）
   while :; do
@@ -258,7 +270,7 @@ wz_creds(){
     [ -n "$v" ] && SOAP_LOGIN="$v" || { c_warn "SOAP 账号名不能为空"; continue; }
   done
   while :; do
-    v="$(ask_tty "SOAP 密码: " "" -s)"; if maybe_back "$v"; then return 1; fi
+    v="$(ask_tty "SOAP 密码: " "")"; if maybe_back "$v"; then return 1; fi
     [ -n "$v" ] && break
     c_warn "SOAP 密码不能为空"
   done
@@ -266,25 +278,8 @@ wz_creds(){
   v="$(ask_tty "数据库 root 密码 [AcokDbRoot2026!]: " "${DB_PW:-AcokDbRoot2026!}")"; if maybe_back "$v"; then return 1; fi; DB_PW="${v:-AcokDbRoot2026!}"
   return 0
 }
-wz_plan(){
-  echo; echo "--- ④ 部署方案 ---"
-  if [ -n "$HISTORY_DIR" ]; then
-    echo "检测到历史安装，可选："
-    echo "  1) 原地更新（保留一切数据，仅拉最新镜像并重起）—— 推荐"
-    echo "  2) 清理重装（销毁数据库与所有数据，全新开始，需确认）"
-    local v; v="$(ask_tty "选择 [1]: " "1")"; if maybe_back "$v"; then return 1; fi
-    case "$v" in
-      2)
-        if confirm "确认清理重装？将销毁玩家账号/角色等所有数据！输入 YES 继续:" "YES"; then PLAN="clean"; else PLAN="update"; fi ;;
-      *) PLAN="update" ;;
-    esac
-  else
-    PLAN="fresh"; c_info "全新安装"
-  fi
-  return 0
-}
 wz_deploy(){
-  echo; echo "--- ⑤ 部署（拉取最新镜像并启动）---"
+  echo; echo "--- ④ 部署（拉取最新镜像并启动）---"
   mkdir -p "$WORK_DIR" && cd "$WORK_DIR" || { c_err "无法进入 $WORK_DIR"; return 1; }
   c_info "下载部署文件到 $WORK_DIR ..."
   curl -fsSL "$WORKER_BASE/docker-compose.override.yml" -o docker-compose.override.yml
@@ -329,7 +324,7 @@ wz_deploy(){
   return 0
 }
 wz_maps(){
-  echo; echo "--- ⑥ 地图数据 ---"
+  echo; echo "--- ⑤ 地图数据 ---"
   if docker volume inspect ac-client-data >/dev/null 2>&1; then
     c_info "地图数据卷(ac-client-data)已存在"
   else
