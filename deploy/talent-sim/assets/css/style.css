@@ -65,9 +65,6 @@ select,input[type=number]{background:var(--panel2);color:var(--text);border:1px 
   cursor:pointer;user-select:none}
 .talent .icon{width:var(--icon);height:var(--icon);border:2px solid #555;border-radius:6px;background:#15181f;
   background-repeat:no-repeat;background-size:auto;display:block;transition:filter .1s,box-shadow .1s}
-/* 图标最终加载失败时的降级占位（浅灰底 + 居中文字），替代原本的纯黑底，杜绝「黑块」观感 */
-.talent .icon.icon-broken{background:#2a2f3a !important;display:flex;align-items:center;justify-content:center}
-.talent .icon.icon-broken .broken-tip{color:#7c8696;font-size:11px;font-weight:600}
 /* 点数徽章钉死在图标右下角（绝对定位到 .talent 右下，不居中、不贴边溢出） */
 .talent .rank{position:absolute;left:auto;top:auto;right:4px;bottom:4px;background:#000;border:1px solid var(--accent);
   color:var(--gold2);font-size:11px;font-weight:700;border-radius:7px;padding:0 5px;min-width:18px;line-height:16px;text-align:center;z-index:4}
