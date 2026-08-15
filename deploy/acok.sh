@@ -302,6 +302,7 @@ wz_deploy(){
     local bk="$WORK_DIR.bak.$(date +%s)"; mkdir -p "$bk"; cp -a .env .soap_creds .db_creds "$bk"/ 2>/dev/null || true
     docker compose down -v || true
   fi
+  fix_env_perms
   pull_with_eta || return 1
   c_info "启动服务 (docker compose up -d) ... 首次启动数据库初始化约 1-3 分钟"
   # 只起核心栈；地图(ac-client-data-init)随 worldserver 依赖自动导入；配置(ac-extra-config)改部署后可选
@@ -378,7 +379,7 @@ import_config(){
   c_ok "配置已重拉。worldserver 需重启(4.2)或热重载(4.1)生效。"
 }
 rerun_db_import(){ c_info "重跑 db-import ..."; docker compose up ac-db-import; c_ok "完成"; }
-full_redeploy(){ c_info "完整重部署：拉最新镜像并重建（保留数据卷）..."; pull_with_eta || return 1; docker compose up -d ac-worldserver ac-authserver ac-database ac-db-import; c_ok "完成"; }
+full_redeploy(){ c_info "完整重部署：拉最新镜像并重建（保留数据卷）..."; fix_env_perms; pull_with_eta || return 1; docker compose up -d ac-worldserver ac-authserver ac-database ac-db-import; c_ok "完成"; }
 
 # ---------- 4 服务操作 ----------
 svc_menu(){
@@ -497,6 +498,18 @@ account_mgmt(){
 }
 
 # ---------- 公共：拉取（带进度/ETA） ----------
+# 修正配置/日志目录归属：以 root 部署时 Docker 会自建 ./env/dist/etc|logs 并归 root，
+# 而容器内进程以 uid 1000 运行、无写权限 -> ac-db-import/worldserver 报 Permission denied。
+# 真机原生 Linux 下 chown 生效；NTFS 挂载(chown 无效)环境需配合 .env 里 DOCKER_USER=root。
+fix_env_perms(){
+  mkdir -p "$WORK_DIR/env/dist/etc" "$WORK_DIR/env/dist/logs"
+  if chown -R 1000:1000 "$WORK_DIR/env/dist/etc" "$WORK_DIR/env/dist/logs" 2>/dev/null; then
+    c_info "已修正 env/dist/etc|logs 归属(uid 1000)"
+  else
+    c_warn "chown 未生效（可能为 NTFS 挂载）；若仍 Permission denied，请在 .env 加 DOCKER_USER=root 后重跑"
+  fi
+}
+
 pull_with_eta(){
   local start end
   start=$(date +%s)
