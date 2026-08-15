@@ -30,7 +30,7 @@ PLAN="fresh"
 # 持久化凭据（位于 WORK_DIR，chmod 600，不进仓库/不进公开 .env）
 SOAP_CREDS="$WORK_DIR/.soap_creds"
 DB_CREDS="$WORK_DIR/.db_creds"
-SOAP_LOGIN=""; SOAP_PASSWORD=""; DB_PW=""; REALM_ADDRESS=""; IMAGE_NS=""
+SOAP_LOGIN=""; SOAP_PASSWORD=""; DB_PW=""; REALM_ADDRESS=""; IMAGE_NS=""; GM_NAME=""; GM_PASS=""
 PROXY=""
 
 # ---------- 输出与输入 ----------
@@ -238,10 +238,20 @@ wz_env(){
   return 0
 }
 wz_creds(){
-  echo; echo "--- ③ 凭据（GM/注册账号 与 数据库，输入 b 返回）---"
+  echo; echo "--- ③ 凭据（GM 与 SOAP 凭据 / 数据库，输入 b 返回）---"
   local v
-  v="$(ask_tty "SOAP/GM 账号名 [$SOAP_LOGIN]: " "${SOAP_LOGIN:-acok}")"; if maybe_back "$v"; then return 1; fi; SOAP_LOGIN="${v:-acok}"
-  v="$(ask_tty "SOAP/GM 密码(默认 <主机名><4位日期>，留空用默认): " "" -s)"; if maybe_back "$v"; then return 1; fi
+  # GM 游戏账号（给人登录游戏、管理服务器）
+  v="$(ask_tty "GM 账号名 [acok]: " "${GM_NAME:-acok}")"; if maybe_back "$v"; then return 1; fi; GM_NAME="${v:-acok}"
+  v="$(ask_tty "GM 登录密码(默认 <主机名><4位日期>，留空用默认): " "" -s)"; if maybe_back "$v"; then return 1; fi
+  [ -z "$v" ] && v="$(default_gm_pass)"; GM_PASS="$v"
+  # SOAP 机器账号（专供 Cloudflare Worker ↔ worldserver 鉴权，须与 CF 后台一致）
+  v="$(ask_tty "SOAP 账号名 [acok]: " "${SOAP_LOGIN:-acok}")"; if maybe_back "$v"; then return 1; fi; SOAP_LOGIN="${v:-acok}"
+  # 碰撞守卫：GM 与 SOAP 不能同名（同 realm 账号名唯一）
+  while [ "$SOAP_LOGIN" = "$GM_NAME" ]; do
+    c_warn "SOAP 账号名不能与 GM 账号名($GM_NAME)相同"
+    v="$(ask_tty "SOAP 账号名 [acok]: " "${SOAP_LOGIN:-acok}")"; if maybe_back "$v"; then return 1; fi; SOAP_LOGIN="${v:-acok}"
+  done
+  v="$(ask_tty "SOAP 密码(须与 CF 后台 SOAP_PASSWORD 一致，默认 <主机名><4位日期>，留空用默认): " "" -s)"; if maybe_back "$v"; then return 1; fi
   [ -z "$v" ] && v="$(default_gm_pass)"; SOAP_PASSWORD="$v"
   v="$(ask_tty "数据库 root 密码 [$DB_PW]: " "${DB_PW:-AcokDbRoot2026!}")"; if maybe_back "$v"; then return 1; fi; DB_PW="${v:-AcokDbRoot2026!}"
   c_warn "SOAP 密码须与 Cloudflare 后台 Variables & Secrets 的 SOAP_PASSWORD 一致，否则注册接口认证失败。"
@@ -285,12 +295,18 @@ wz_deploy(){
   pull_with_eta
   c_info "启动服务 (docker compose up -d) ... 首次启动数据库初始化约 1-3 分钟"
   docker compose up -d
-  c_info "等待 worldserver 并创建 SOAP/GM 账号 $SOAP_LOGIN ..."
+  c_info "等待 worldserver 并创建账号（GM=$GM_NAME / SOAP=$SOAP_LOGIN）..."
   for _k in $(seq 1 36); do docker compose exec -T ac-worldserver acore account list >/dev/null 2>&1 && break; sleep 5; done
+  # GM 游戏账号（给人登录游戏、管理服务器）
+  docker compose exec -T ac-worldserver acore account create "$GM_NAME" "$GM_PASS" >/dev/null 2>&1 || true
+  docker compose exec -T ac-worldserver acore account set gmlevel "$GM_NAME" 3 >/dev/null 2>&1 \
+    && c_ok "GM 账号 $GM_NAME 就绪(gmlevel 3)" \
+    || c_warn "GM 建号失败，请手动: docker compose exec ac-worldserver acore account create $GM_NAME <密码> 3"
+  # SOAP 机器账号（喂 worldserver.conf，须与 CF 后台一致）
   docker compose exec -T ac-worldserver acore account create "$SOAP_LOGIN" "$SOAP_PASSWORD" >/dev/null 2>&1 || true
   docker compose exec -T ac-worldserver acore account set gmlevel "$SOAP_LOGIN" 3 >/dev/null 2>&1 \
-    && c_ok "账号 $SOAP_LOGIN 就绪(gmlevel 3)" \
-    || c_warn "建号失败，请手动: docker compose exec ac-worldserver acore account create $SOAP_LOGIN <密码> 3"
+    && c_ok "SOAP 账号 $SOAP_LOGIN 就绪(gmlevel 3)" \
+    || c_warn "SOAP 建号失败，请手动: docker compose exec ac-worldserver acore account create $SOAP_LOGIN <密码> 3"
   REALM="$REALM_ADDRESS"; REALM_SQL="${REALM//\'/\'\'}"
   c_info "写入 realm 对外地址 ($REALM) ..."
   for _k in $(seq 1 36); do docker compose exec -T ac-database mysql -uroot -p"$DB_PW" -e "SELECT 1" acore_auth >/dev/null 2>&1 && break; sleep 3; done
@@ -299,7 +315,8 @@ wz_deploy(){
     || c_warn "realmlist 未就绪，请手动: UPDATE acore_auth.realmlist SET address='$REALM' WHERE id=1;"
   c_ok "部署完成！"
   c_info "世界服端口 8085 / 3724；注册 SOAP 7878；玩家连接地址 $REALM"
-  c_info "GM/注册账号: $SOAP_LOGIN   密码: $SOAP_PASSWORD"
+  c_info "GM 账号: $GM_NAME   密码: $GM_PASS"
+  c_info "SOAP 账号(Worker 鉴权): $SOAP_LOGIN   密码: $SOAP_PASSWORD（须与 CF 后台一致）"
   return 0
 }
 wz_maps(){
@@ -398,8 +415,8 @@ creds_menu(){
   require_workdir || return 1
   while true; do
     echo; echo "=== 5 凭据管理 ==="
-    echo "1) 改 SOAP_LOGIN / 注册·GM 账号名"
-    echo "2) 改 SOAP_PASSWORD / 注册·GM 密码"
+    echo "1) 改 SOAP 账号名(Worker 鉴权)"
+    echo "2) 改 SOAP 密码(须与 CF 后台一致)"
     echo "3) 改数据库 root 密码"
     echo "4) 查找历史安装位置"
     echo "5) 账号管理（新建普通 / 新建 GM 带等级 / 改 GM 等级）"
@@ -416,14 +433,14 @@ creds_menu(){
   done
 }
 change_soap_login(){
-  local v; v="$(ask '新 SOAP/GM 账号名: ')"; [ -z "$v" ] && return
+  local v; v="$(ask '新 SOAP 账号名: ')"; [ -z "$v" ] && return
   SOAP_LOGIN="$v"
   set_env SOAP_LOGIN "$SOAP_LOGIN"
   printf 'SOAP_LOGIN=%s\nSOAP_PASSWORD=%s\n' "$SOAP_LOGIN" "$SOAP_PASSWORD" > "$SOAP_CREDS" && chmod 600 "$SOAP_CREDS"
   c_ok "已更新。需重拉配置(3.2)+重启worldserver(4.2)生效；Cloudflare 后台 SOAP_LOGIN 也须同步。"
 }
 change_soap_pass(){
-  local v; v="$(ask_s '新 SOAP/GM 密码: ')"; [ -z "$v" ] && return
+  local v; v="$(ask_s '新 SOAP 密码: ')"; [ -z "$v" ] && return
   SOAP_PASSWORD="$v"
   set_env SOAP_PASSWORD "$SOAP_PASSWORD"
   printf 'SOAP_LOGIN=%s\nSOAP_PASSWORD=%s\n' "$SOAP_LOGIN" "$SOAP_PASSWORD" > "$SOAP_CREDS" && chmod 600 "$SOAP_CREDS"
