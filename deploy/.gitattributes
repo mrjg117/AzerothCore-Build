@@ -1,1 +1,28 @@
+# 默认：源码/脚本/配置按文本处理并统一 LF 行尾（CRLF->LF 归一化，属正常行为）
 * text eol=lf
+# 二进制资源：禁止任何文本（CRLF）转换。
+# 否则 git 的干净过滤器会把二进制里的 CR(0x0D) 字节当 CRLF 截断，
+# 导致图片/字体等文件少字节、解码失败（ef7566f 曾因此损坏 19 个图片）。
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.svg binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.ogg binary
+*.webm binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.tar binary
+*.wasm binary
