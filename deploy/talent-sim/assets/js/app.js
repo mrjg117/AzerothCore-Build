@@ -2,53 +2,13 @@
 (function () {
   "use strict";
 
-  // ---------- 资源版本与完整性预加载 ----------
-  // 版本戳：与 deploy/index.html、talent-sim/index.html 中加载脚本的 ?v= 保持一致。
+  // ---------- 资源版本戳 ----------
+  // 与 deploy/index.html、talent-sim/index.html 中加载脚本的 ?v= 保持一致。
   // 改了 app.js 逻辑或任何 assets/sprites/* 资源内容后，务必同步 bump 此版本号（否则用户长期命中旧缓存）。
-  const ASSET_VER = "20260815a";
+  const ASSET_VER = "20260815b";
   function cacheBust(url) {
     if (!url) return url;
     return url + (url.indexOf("?") >= 0 ? "&" : "?") + "v=" + ASSET_VER;
-  }
-  // sprite/bg 加载状态机：url -> true(成功)/false(失败)/"loading"(进行中)
-  const _spriteState = Object.create(null);
-  const _spriteWaiters = Object.create(null);
-  function _spriteSettle(url, ok) {
-    _spriteState[url] = ok;
-    const ws = _spriteWaiters[url];
-    if (ws) { delete _spriteWaiters[url]; ws.forEach(fn => { try { fn(ok); } catch (e) {} }); }
-  }
-  function preloadSprite(rawUrl, depth) {
-    const url = cacheBust(rawUrl);
-    const cur = _spriteState[url];
-    if (cur === true || cur === false) return;        // 已终态
-    if (cur === "loading") return;                     // 进行中
-    const d = depth || 0;
-    _spriteState[url] = "loading";
-    const img = new Image();
-    img.onload = () => _spriteSettle(url, true);
-    img.onerror = () => {
-      // 单次请求被网络掐断（CF 边缘抖动/加载一半）时自动重试，最多 3 次、指数退避
-      if (d < 3) { setTimeout(() => preloadSprite(rawUrl, d + 1), 250 * (d + 1)); }
-      else _spriteSettle(url, false);
-    };
-    img.src = url;
-  }
-  // 确保某资源就绪后回调 onReady(ok)；已就绪则同步回调。用于 renderTalent 安全绘制图标。
-  function ensureSprite(rawUrl, onReady) {
-    const url = cacheBust(rawUrl);
-    const st = _spriteState[url];
-    if (st === true) { onReady(true); return; }
-    if (st === false) { onReady(false); return; }
-    if (st !== "loading") preloadSprite(rawUrl, 0);
-    (_spriteWaiters[url] = _spriteWaiters[url] || []).push(onReady);
-  }
-  function preloadAllSprites() {
-    if (typeof CLASSES === "undefined") return;
-    CLASSES.forEach(c => c.trees.forEach(t => {
-      if (t.sprite) preloadSprite(t.sprite, 0);
-      if (t.bg) preloadSprite(t.bg, 0);
-    }));
   }
 
   const LS_BUILDS = "wotlk_builds_v1";
@@ -253,7 +213,7 @@
     panel.className = "tree";
     panel.dataset.tree = tree.name;
     const bg = document.createElement("img");
-    bg.className = "tree-bg"; bg.src = cacheBust(tree.bg); bg.alt = ""; bg.loading = "lazy";
+    bg.className = "tree-bg"; bg.src = cacheBust(tree.bg); bg.alt = ""; bg.loading = "eager";
     bg.onerror = () => { bg.style.display = "none"; };
     panel.appendChild(bg);
 
@@ -324,23 +284,9 @@
 
     const icon = document.createElement("div");
     icon.className = "icon"; icon.alt = zhName(tal); icon.setAttribute("role", "img");
+    icon.style.backgroundImage = "url('" + cacheBust(tree.sprite) + "')";
     icon.style.backgroundPosition = (-(tal.col) * 48) + "px " + (-(tal.row) * 48) + "px";
     icon.style.backgroundRepeat = "no-repeat";
-    // 图标完整性：等 sprite 真正加载成功（onload）后才绘制，避免异步加载中途露黑底；
-    // 加载失败则降级为浅灰占位（.icon-broken），不再显示纯黑块。
-    ensureSprite(tree.sprite, ok => {
-      if (ok) {
-        icon.style.backgroundImage = "url('" + cacheBust(tree.sprite) + "')";
-      } else {
-        icon.classList.add("icon-broken");
-        if (!icon.querySelector(".broken-tip")) {
-          const tip = document.createElement("span");
-          tip.className = "broken-tip";
-          tip.textContent = "图";
-          icon.appendChild(tip);
-        }
-      }
-    });
     el.appendChild(icon);
 
     if (r > 0) {
@@ -611,7 +557,6 @@
   }
 
   // ---------- init ----------
-  preloadAllSprites();
   applyShared();
   setupControls();
   render();
