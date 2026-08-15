@@ -484,12 +484,12 @@ main(){
     c_err "WORKER_BASE 仍是占位符：请在 deploy/wrangler.toml 的 [vars] 把 WORKER_BASE 改成真实 Worker 地址后重新构建部署。"
     exit 1
   fi
-  if [ -t 0 ]; then
-    # 交互本地运行：先探测历史安装以便后续操作定位 WORK_DIR
+  if [ -t 0 ] || [ -t 1 ]; then
+    # 交互运行（本地 bash acok.sh 或 curl|bash 在终端）：先探测历史安装以便后续操作定位 WORK_DIR
     find_history && WORK_DIR="${HISTORY_DIR:-$WORK_DIR}" && load_creds "$WORK_DIR" || true
     menu_loop
   else
-    c_info "检测到非交互运行（curl|bash），直接进入安装向导..."
+    c_info "检测到非交互运行（无终端），直接进入安装向导..."
     run_wizard
   fi
 }
