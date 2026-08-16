@@ -30,7 +30,7 @@ PLAN="fresh"
 # 持久化凭据（位于 WORK_DIR，chmod 600，不进仓库/不进公开 .env）
 SOAP_CREDS="$WORK_DIR/.soap_creds"
 DB_CREDS="$WORK_DIR/.db_creds"
-SOAP_LOGIN=""; SOAP_PASSWORD=""; DB_PW=""; REALM_ADDRESS=""; IMAGE_NS=""; GM_NAME=""; GM_PASS=""; DB_IMAGE=""
+SOAP_LOGIN=""; SOAP_PASSWORD=""; DB_PW=""; REALM_ADDRESS=""; IMAGE_NS=""; GM_NAME=""; GM_PASS=""
 PROXY=""
 
 # ---------- 输出与输入 ----------
@@ -122,7 +122,6 @@ load_creds(){
   [ -f "$d/.env" ] && {
     [ -z "$REALM_ADDRESS" ] && REALM_ADDRESS="$(grep '^REALM_ADDRESS=' "$d/.env" 2>/dev/null | cut -d= -f2-)"
     [ -z "$IMAGE_NS" ] && IMAGE_NS="$(grep '^IMAGE_NS=' "$d/.env" 2>/dev/null | cut -d= -f2-)"
-    [ -z "$DB_IMAGE" ] && DB_IMAGE="$(grep '^DB_IMAGE=' "$d/.env" 2>/dev/null | cut -d= -f2-)"
   }
 }
 save_creds(){
@@ -245,16 +244,13 @@ wz_env(){
     _env_tpl="$(curl -fsSL --max-time 20 "$WORKER_BASE/.env.example" 2>/dev/null)"
     [ -z "$REALM_ADDRESS" ] && REALM_ADDRESS="$(printf '%s\n' "$_env_tpl" | grep '^REALM_ADDRESS=' | cut -d= -f2-)"
     [ -z "$IMAGE_NS" ] && IMAGE_NS="$(printf '%s\n' "$_env_tpl" | grep '^IMAGE_NS=' | cut -d= -f2-)"
-    [ -z "$DB_IMAGE" ] && DB_IMAGE="$(printf '%s\n' "$_env_tpl" | grep '^DB_IMAGE=' | cut -d= -f2-)"
   fi
   REALM_ADDRESS="${REALM_ADDRESS:-play.example.com}"
   IMAGE_NS="${IMAGE_NS:-ghcr.io/mrjg117}"
-  DB_IMAGE="${DB_IMAGE:-ghcr.io/mrjg117/ac-wotlk-mysql:8.4}"
   v="$(ask_tty "部署目录 [$WORK_DIR]: " "${WORK_DIR:-/opt/azerothcore-ok}")"; if maybe_back "$v"; then return 1; fi; WORK_DIR="${v:-/opt/azerothcore-ok}"
   SOAP_CREDS="$WORK_DIR/.soap_creds"; DB_CREDS="$WORK_DIR/.db_creds"
   v="$(ask_tty "对外地址(域名或IP) [$REALM_ADDRESS]: " "$REALM_ADDRESS")"; if maybe_back "$v"; then return 1; fi; REALM_ADDRESS="${v:-$REALM_ADDRESS}"
   v="$(ask_tty "镜像命名空间 [$IMAGE_NS]: " "$IMAGE_NS")"; if maybe_back "$v"; then return 1; fi; IMAGE_NS="${v:-$IMAGE_NS}"
-  v="$(ask_tty "数据库镜像 [$DB_IMAGE]: " "$DB_IMAGE")"; if maybe_back "$v"; then return 1; fi; DB_IMAGE="${v:-$DB_IMAGE}"
   return 0
 }
 wz_creds(){
@@ -301,7 +297,6 @@ wz_deploy(){
   fi
   [ -n "$REALM_ADDRESS" ] && set_env REALM_ADDRESS "$REALM_ADDRESS"
   [ -n "$IMAGE_NS" ] && set_env IMAGE_NS "$IMAGE_NS"
-  [ -n "$DB_IMAGE" ] && set_env DB_IMAGE "$DB_IMAGE"
   set_env SOAP_LOGIN "$SOAP_LOGIN"
   set_env SOAP_PASSWORD "$SOAP_PASSWORD"
   [ -n "$DB_PW" ] && set_env DOCKER_DB_ROOT_PASSWORD "$DB_PW"
