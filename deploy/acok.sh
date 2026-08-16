@@ -162,7 +162,7 @@ select_mirror(){
     echo; echo "当前镜像源: ${IMAGE_NS:-ghcr.io/mrjg117}"
     echo "1) ghcr.io/mrjg117 (官方直连，默认)"
     echo "2) 自定义镜像前缀"
-    echo "t) speed_test"
+    echo "t) 测速当前源"
     echo "q) 返回"
     local c; c="$(ask '镜像源> ')"; case "$c" in
       1) set_ns "ghcr.io/mrjg117";;
@@ -181,28 +181,48 @@ set_ns(){
 speed_test(){
   local repo=ac-wotlk-worldserver tag=latest
   local cands="ghcr.io/mrjg117 ${IMAGE_NS:-ghcr.io/mrjg117}"
-  local seen=" " ns reg owner tok mfest szlist dglst maxsz maxdig ddig tmp pid
+  local seen=" " ns reg owner tok subdig layerdig mfest mfest2 tmp pid
   local start last prev now el dtt spd sz rc dt mbps note
   for ns in $cands; do
     case "$seen" in *" $ns "*) continue;; esac
     seen="$seen$ns "
-    echo; echo ">>> speed_test: $ns"
+    echo; echo ">>> 测速当前源: $ns"
     reg="${ns%%/*}"; owner="${ns##*/}"
     mfest=$(docker manifest inspect "${ns}/${repo}:${tag}" 2>/dev/null)
-    if [ -z "$mfest" ]; then c_err "$ns -> 清单获取失败（不可达/未公开）"; continue; fi
-    maxsz=0; maxdig=""
-    szlist=$(printf '%s' "$mfest" | grep -o '"size":[0-9]*' | grep -o '[0-9]*')
-    dglst=$(printf '%s' "$mfest" | grep -o 'sha256:[a-f0-9]*')
-    while IFS= read -r s && IFS= read -r d <&3; do
-      [ "$s" -gt "$maxsz" ] 2>/dev/null && { maxsz=$s; maxdig=$d; }
-    done < <(printf '%s\n' "$szlist") 3< <(printf '%s\n' "$dglst")
-    ddig="$maxdig"
-    if [ -z "$ddig" ]; then c_err "$ns -> 解析层失败"; continue; fi
+    [ -z "$mfest" ] && { c_err "$ns -> 清单获取失败（不可达/未公开）"; continue; }
+    # 解析：manifest list 取 amd64 子 manifest digest；单架构直接取最大层
+    read -r subdig layerdig _ < <(printf '%s' "$mfest" | python3 -c '
+import sys,json
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+if d.get("manifests"):
+    amd=None
+    for e in d["manifests"]:
+        p=e.get("platform",{})
+        if p.get("architecture")=="amd64" and p.get("os")=="linux":
+            amd=e.get("digest"); break
+    if not amd: amd=d["manifests"][0].get("digest")
+    print(amd or "", "", 0)
+else:
+    ls=d.get("layers") or []
+    print("", (max(ls,key=lambda x:x.get("size",0)).get("digest","") if ls else ""), 0)
+')
+    if [ -n "$subdig" ]; then
+      mfest2=$(docker manifest inspect "${ns}/${repo}@${subdig}" 2>/dev/null)
+      layerdig=$(printf '%s' "$mfest2" | python3 -c '
+import sys,json
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+ls=d.get("layers") or []
+print(max(ls,key=lambda x:x.get("size",0)).get("digest","") if ls else "")
+')
+    fi
+    [ -z "$layerdig" ] && { c_err "$ns -> 解析层失败"; continue; }
     tok=$(curl -s --max-time 10 "https://${reg}/token?scope=repository:${owner}/${repo}:pull" | sed -n 's/.*"\(access_\)\?token":"\([^"]*\)".*/\2/p')
-    if [ -z "$tok" ]; then c_err "$ns -> 获取令牌失败（不可达）"; continue; fi
+    [ -z "$tok" ] && { c_err "$ns -> 获取令牌失败（不可达）"; continue; }
     tmp=$(mktemp /tmp/acok_speed.XXXXXX)
     start=$(date +%s.%N); last=$start; prev=0
-    curl -s --max-time 10 -H "Authorization: Bearer $tok" -o "$tmp" "https://${reg}/v2/${owner}/${repo}/blobs/${ddig}" &
+    curl -s --max-time 10 -H "Authorization: Bearer $tok" -o "$tmp" "https://${reg}/v2/${owner}/${repo}/blobs/${layerdig}" &
     pid=$!
     while kill -0 $pid 2>/dev/null; do
       sz=0; [ -f "$tmp" ] && sz=$(stat -c%s "$tmp" 2>/dev/null || echo 0)
@@ -214,7 +234,7 @@ speed_test(){
     done
     wait $pid; rc=$?
     sz=0; [ -f "$tmp" ] && sz=$(stat -c%s "$tmp" 2>/dev/null || echo 0)
-    end=$(date +%s.%N); dt=$(awk "BEGIN{printf \"%.1f\", $end-$start}")
+    dt=$(awk "BEGIN{printf \"%.1f\", $(date +%s.%N)-$start}")
     mbps=$(awk "BEGIN{printf \"%.2f\", $sz/$dt/1048576}")
     printf "\n"
     if [ "$sz" -gt 0 ]; then
