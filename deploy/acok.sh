@@ -162,12 +162,12 @@ select_mirror(){
     echo; echo "当前镜像源: ${IMAGE_NS:-ghcr.io/mrjg117}"
     echo "1) ghcr.io/mrjg117 (官方直连，默认)"
     echo "2) 自定义镜像前缀"
-    echo "t) 测速当前源"
+    echo "t) speed_test"
     echo "q) 返回"
     local c; c="$(ask '镜像源> ')"; case "$c" in
       1) set_ns "ghcr.io/mrjg117";;
       2) local v; v="$(ask '输入镜像前缀(如 ghcr.1ms.run/mrjg117): ')"; [ -n "$v" ] && set_ns "$v";;
-      t|T) speed_test_all;;
+      t|T) speed_test;;
       q|Q) break;;
       *) c_warn "无效选择";;
     esac
@@ -178,25 +178,53 @@ set_ns(){
   c_ok "镜像源已设为 $IMAGE_NS"
   [ -f "$WORK_DIR/.env" ] && set_env IMAGE_NS "$IMAGE_NS"
 }
-speed_test_all(){
-  c_info "测速镜像源（拉取 ac-wotlk-worldserver 服务镜像）..."
-  local tested=" " ns
-  for ns in ghcr.io/mrjg117 "${IMAGE_NS:-ghcr.io/mrjg117}"; do
-    case "$tested" in *" $ns "*) continue;; esac
-    tested="$tested$ns "
-    speed_test_one "$ns"
+speed_test(){
+  local repo=ac-wotlk-worldserver tag=latest
+  local cands="ghcr.io/mrjg117 ${IMAGE_NS:-ghcr.io/mrjg117}"
+  local seen=" " ns reg owner tok mfest szlist dglst maxsz maxdig ddig tmp pid
+  local start last prev now el dtt spd sz rc dt mbps note
+  for ns in $cands; do
+    case "$seen" in *" $ns "*) continue;; esac
+    seen="$seen$ns "
+    echo; echo ">>> speed_test: $ns"
+    reg="${ns%%/*}"; owner="${ns##*/}"
+    mfest=$(docker manifest inspect "${ns}/${repo}:${tag}" 2>/dev/null)
+    if [ -z "$mfest" ]; then c_err "$ns -> 清单获取失败（不可达/未公开）"; continue; fi
+    maxsz=0; maxdig=""
+    szlist=$(printf '%s' "$mfest" | grep -o '"size":[0-9]*' | grep -o '[0-9]*')
+    dglst=$(printf '%s' "$mfest" | grep -o 'sha256:[a-f0-9]*')
+    while IFS= read -r s && IFS= read -r d <&3; do
+      [ "$s" -gt "$maxsz" ] 2>/dev/null && { maxsz=$s; maxdig=$d; }
+    done < <(printf '%s\n' "$szlist") 3< <(printf '%s\n' "$dglst")
+    ddig="$maxdig"
+    if [ -z "$ddig" ]; then c_err "$ns -> 解析层失败"; continue; fi
+    tok=$(curl -s --max-time 10 "https://${reg}/token?scope=repository:${owner}/${repo}:pull" | sed -n 's/.*"\(access_\)\?token":"\([^"]*\)".*/\2/p')
+    if [ -z "$tok" ]; then c_err "$ns -> 获取令牌失败（不可达）"; continue; fi
+    tmp=$(mktemp /tmp/acok_speed.XXXXXX)
+    start=$(date +%s.%N); last=$start; prev=0
+    curl -s --max-time 10 -H "Authorization: Bearer $tok" -o "$tmp" "https://${reg}/v2/${owner}/${repo}/blobs/${ddig}" &
+    pid=$!
+    while kill -0 $pid 2>/dev/null; do
+      sz=0; [ -f "$tmp" ] && sz=$(stat -c%s "$tmp" 2>/dev/null || echo 0)
+      now=$(date +%s.%N); el=$(awk "BEGIN{printf \"%.1f\", $now-$start}")
+      dtt=$(awk "BEGIN{printf \"%.3f\", $now-$last}")
+      spd=0; awk "BEGIN{exit !($dtt>0)}" && spd=$(awk "BEGIN{printf \"%.2f\", ($sz-$prev)/($dtt)/1048576}")
+      printf "\r    已下载 %d MiB  当前 %.2f MB/s  用时 %ss" "$((sz/1048576))" "$spd" "$el"
+      last=$now; prev=$sz; sleep 1
+    done
+    wait $pid; rc=$?
+    sz=0; [ -f "$tmp" ] && sz=$(stat -c%s "$tmp" 2>/dev/null || echo 0)
+    end=$(date +%s.%N); dt=$(awk "BEGIN{printf \"%.1f\", $end-$start}")
+    mbps=$(awk "BEGIN{printf \"%.2f\", $sz/$dt/1048576}")
+    printf "\n"
+    if [ "$sz" -gt 0 ]; then
+      note=""; [ "$rc" != "0" ] && note=" (10s 截断)"
+      c_ok "$ns -> 平均 %.2f MB/s%s (%.1fs 内下载 %d MiB)" "$mbps" "$note" "$dt" "$((sz/1048576))"
+    else
+      c_err "$ns -> 下载失败"
+    fi
+    rm -f "$tmp"
   done
-}
-speed_test_one(){
-  local ns="$1" img="${1}/ac-wotlk-worldserver:latest" start end dt
-  start=$(date +%s.%N)
-  if docker pull "$img" >/dev/null 2>&1; then
-    end=$(date +%s.%N)
-    dt=$(awk "BEGIN{printf \"%.1f\", $end-$start}")
-    c_ok "$ns -> 用时 ${dt}s"
-  else
-    c_err "$ns -> 拉取失败（可能不可达或未公开）"
-  fi
 }
 
 # ---------- 2 安装向导 ----------
