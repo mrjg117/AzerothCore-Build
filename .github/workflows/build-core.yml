@@ -101,8 +101,9 @@ jobs:
           cd official
           VERSION="$(date +%Y%m%d)-$(echo ${{ github.sha }} | cut -c1-7)"
           CACHE="--cache-from=type=local,src=/tmp/acache --cache-to=type=local,mode=max,dest=/tmp/acache"
-          # 注：client-data target 由 build-maps.yml 的 ac-maps 镜像取代；
-          #     mysql 由 build-mysql.yml 单独推送（不编译 core）。
+          # 注：client-data target 由 build-maps.yml 的 ac-maps 镜像取代。
+          #     mysql 镜像在本流程一并打包推送（ac-wotlk-mysql）；临时 build-mysql.yml 可单独触发，
+          #     待部署稳定后删除 build-mysql.yml，mysql 仍由本流程产出。
           for t in worldserver authserver db-import tools; do
             TAGS="ghcr.io/${{ github.repository_owner }}/ac-wotlk-$t:$VERSION,ghcr.io/${{ github.repository_owner }}/ac-wotlk-$t:latest"
             BUILDX_TAGS=""
@@ -111,12 +112,20 @@ jobs:
             docker buildx build $CACHE --target "$t" -f apps/docker/Dockerfile --build-arg CMODULES=static $BUILDX_TAGS --push .
           done
 
+      - name: Pull & push mysql:8.4 to ghcr (ac-wotlk-mysql，部署直连免走 Docker Hub)
+        run: |
+          docker pull mysql:8.4
+          docker tag mysql:8.4 "ghcr.io/${{ github.repository_owner }}/ac-wotlk-mysql:8.4"
+          docker tag mysql:8.4 "ghcr.io/${{ github.repository_owner }}/ac-wotlk-mysql:latest"
+          docker push "ghcr.io/${{ github.repository_owner }}/ac-wotlk-mysql:8.4"
+          docker push "ghcr.io/${{ github.repository_owner }}/ac-wotlk-mysql:latest"
+
       - name: Set package visibility public (供服务器匿名 pull)
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for t in worldserver authserver db-import tools; do
+          for t in worldserver authserver db-import tools mysql; do
             curl -sS -X PATCH \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
@@ -152,4 +161,4 @@ jobs:
               if gh api -X DELETE "$base/$e/versions/$vid" >/dev/null 2>&1; then echo "  deleted $vid"; else echo "  FAILED $vid"; fi
             done
           }
-          for t in worldserver authserver db-import tools; do prune "$owner/ac-wotlk-$t"; done
+          for t in worldserver authserver db-import tools mysql; do prune "$owner/ac-wotlk-$t"; done
