@@ -32,6 +32,8 @@ SOAP_CREDS="$WORK_DIR/.soap_creds"
 DB_CREDS="$WORK_DIR/.db_creds"
 SOAP_LOGIN=""; SOAP_PASSWORD=""; DB_PW=""; REALM_ADDRESS=""; IMAGE_NS=""; GM_NAME=""; GM_PASS=""
 PROXY=""
+# 默认值常量（提示语括号显示用，非历史当前值）。以本文件 SPEC.md 第 0 节为准。
+DEF_WORKDIR="/opt/azerothcore-ok"; DEF_REALM="play.example.com"; DEF_NS="ghcr.io/mrjg117"
 
 # ---------- 输出与输入 ----------
 c_info(){ printf '\033[36m[信息]\033[0m %s\n' "$*"; }
@@ -217,7 +219,7 @@ speed_test(){
 # ---------- 2 安装向导 ----------
 run_wizard(){
   ensure_docker || return 1
-  local steps=(wz_history wz_env wz_creds wz_deploy wz_maps)
+  local steps=(wz_history wz_env wz_creds wz_plan wz_deploy wz_maps)
   local wi=0 n=${#steps[@]}
   while [ $wi -lt $n ]; do
     if "${steps[$wi]}"; then wi=$((wi+1)); else wi=$((wi-1)); [ $wi -lt 0 ] && wi=0; fi
@@ -255,10 +257,10 @@ wz_env(){
   fi
   REALM_ADDRESS="${REALM_ADDRESS:-play.example.com}"
   IMAGE_NS="${IMAGE_NS:-ghcr.io/mrjg117}"
-  v="$(ask_tty "部署目录 [$WORK_DIR]: " "${WORK_DIR:-/opt/azerothcore-ok}")"; if maybe_back "$v"; then return 1; fi; WORK_DIR="${v:-/opt/azerothcore-ok}"
+  v="$(ask_tty "部署目录 [$DEF_WORKDIR]: " "${WORK_DIR:-$DEF_WORKDIR}")"; if maybe_back "$v"; then return 1; fi; WORK_DIR="${v:-$DEF_WORKDIR}"
   SOAP_CREDS="$WORK_DIR/.soap_creds"; DB_CREDS="$WORK_DIR/.db_creds"
-  v="$(ask_tty "对外地址(域名或IP) [$REALM_ADDRESS]: " "$REALM_ADDRESS")"; if maybe_back "$v"; then return 1; fi; REALM_ADDRESS="${v:-$REALM_ADDRESS}"
-  v="$(ask_tty "镜像命名空间 [$IMAGE_NS]: " "$IMAGE_NS")"; if maybe_back "$v"; then return 1; fi; IMAGE_NS="${v:-$IMAGE_NS}"
+  v="$(ask_tty "对外地址(域名或IP) [$DEF_REALM]: " "${REALM_ADDRESS:-$DEF_REALM}")"; if maybe_back "$v"; then return 1; fi; REALM_ADDRESS="${v:-$REALM_ADDRESS}"
+  v="$(ask_tty "镜像命名空间 [$DEF_NS]: " "${IMAGE_NS:-$DEF_NS}")"; if maybe_back "$v"; then return 1; fi; IMAGE_NS="${v:-$IMAGE_NS}"
   return 0
 }
 wz_creds(){
@@ -290,8 +292,35 @@ wz_creds(){
   v="$(ask_tty "数据库 root 密码 [AcokDbRoot2026!]: " "${DB_PW:-AcokDbRoot2026!}")"; if maybe_back "$v"; then return 1; fi; DB_PW="${v:-AcokDbRoot2026!}"
   return 0
 }
+wz_plan(){
+  echo; echo "--- ④ 部署确认（输入 b 返回上一步，y 直接部署）---"
+  while true; do
+    echo "当前配置："
+    echo "  部署目录:     $WORK_DIR"
+    echo "  对外地址:     $REALM_ADDRESS"
+    echo "  镜像命名空间:  $IMAGE_NS"
+    echo "  GM 账号:      $GM_NAME"
+    echo "  SOAP 账号:    $SOAP_LOGIN"
+    echo "  DB root 密码: $DB_PW"
+    echo "  部署方案:      $([ "$PLAN" = clean ] && echo 清理重装 || echo 原地更新/全新)"
+    echo "选项："
+    echo "  1) 修改 部署目录/外网地址/镜像源"
+    echo "  2) 修改 GM/SOAP/数据库凭据"
+    echo "  3) 修改 部署方案(原地更新/清理重装)"
+    echo "  y) 确认并部署（默认）"
+    echo "  b) 返回上一步"
+    local v; v="$(ask_tty "确认部署 [y]: " "y")"; if maybe_back "$v"; then return 1; fi
+    case "$v" in
+      1) wz_env;;
+      2) wz_creds;;
+      3) wz_history;;
+      y|Y|"") return 0;;
+      *) c_warn "无效选择";;
+    esac
+  done
+}
 wz_deploy(){
-  echo; echo "--- ④ 部署（拉取最新镜像并启动）---"
+  echo; echo "--- ⑤ 部署（拉取最新镜像并启动）---"
   mkdir -p "$WORK_DIR" && cd "$WORK_DIR" || { c_err "无法进入 $WORK_DIR"; return 1; }
   c_info "下载部署文件到 $WORK_DIR ..."
   curl -fsSL "$WORKER_BASE/docker-compose.override.yml" -o docker-compose.override.yml
@@ -346,7 +375,7 @@ wz_deploy(){
   return 0
 }
 wz_maps(){
-  echo; echo "--- ⑤ 地图数据（随部署按官方流程已导入）---"
+  echo; echo "--- ⑥ 地图数据（随部署按官方流程已导入）---"
   if docker volume inspect ac-client-data >/dev/null 2>&1; then
     c_info "地图已随部署导入（卷 ac-client-data 已存在）"
   else
