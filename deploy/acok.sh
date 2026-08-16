@@ -179,14 +179,7 @@ set_ns(){
   [ -f "$WORK_DIR/.env" ] && set_env IMAGE_NS "$IMAGE_NS"
 }
 speed_test_all(){
-  c_info "基础外网探针：docker pull hello-world（验证 docker daemon 能否拉外网/是否缺代理）..."
-  if docker pull hello-world >/dev/null 2>&1; then
-    c_ok "docker daemon 基础外网 OK"
-  else
-    c_err "docker daemon 拉 hello-world 失败——大概率 docker daemon 未配置代理（curl 能连但 docker 不能）"
-    c_warn "请给 docker daemon 配代理：写 /etc/systemd/system/docker.service.d/http-proxy.conf 后 systemctl daemon-reload && systemctl restart docker"
-  fi
-  c_info "测速当前镜像源（拉取 ac-wotlk-worldserver 服务镜像）..."
+  c_info "测速镜像源（拉取 ac-wotlk-worldserver 服务镜像）..."
   local tested=" " ns
   for ns in ghcr.io/mrjg117 "${IMAGE_NS:-ghcr.io/mrjg117}"; do
     case "$tested" in *" $ns "*) continue;; esac
