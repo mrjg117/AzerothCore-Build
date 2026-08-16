@@ -180,72 +180,35 @@ set_ns(){
 }
 speed_test(){
   local repo=ac-wotlk-worldserver tag=latest
-  local cands="ghcr.io/mrjg117 ${IMAGE_NS:-ghcr.io/mrjg117}"
-  local seen=" " ns reg owner tok subdig layerdig mfest mfest2 tmp pid
-  local start last prev now el dtt spd sz rc dt mbps note
-  for ns in $cands; do
-    case "$seen" in *" $ns "*) continue;; esac
-    seen="$seen$ns "
-    echo; echo ">>> 测速当前源: $ns"
-    reg="${ns%%/*}"; owner="${ns##*/}"
-    mfest=$(docker manifest inspect "${ns}/${repo}:${tag}" 2>/dev/null)
-    [ -z "$mfest" ] && { c_err "$ns -> 清单获取失败（不可达/未公开）"; continue; }
-    # 解析：manifest list 取 amd64 子 manifest digest；单架构直接取最大层
-    read -r subdig layerdig _ < <(printf '%s' "$mfest" | python3 -c '
-import sys,json
-try: d=json.load(sys.stdin)
-except Exception: sys.exit(0)
-if d.get("manifests"):
-    amd=None
-    for e in d["manifests"]:
-        p=e.get("platform",{})
-        if p.get("architecture")=="amd64" and p.get("os")=="linux":
-            amd=e.get("digest"); break
-    if not amd: amd=d["manifests"][0].get("digest")
-    print(amd or "", "", 0)
-else:
-    ls=d.get("layers") or []
-    print("", (max(ls,key=lambda x:x.get("size",0)).get("digest","") if ls else ""), 0)
-')
-    if [ -n "$subdig" ]; then
-      mfest2=$(docker manifest inspect "${ns}/${repo}@${subdig}" 2>/dev/null)
-      layerdig=$(printf '%s' "$mfest2" | python3 -c '
-import sys,json
-try: d=json.load(sys.stdin)
-except Exception: sys.exit(0)
-ls=d.get("layers") or []
-print(max(ls,key=lambda x:x.get("size",0)).get("digest","") if ls else "")
-')
-    fi
-    [ -z "$layerdig" ] && { c_err "$ns -> 解析层失败"; continue; }
-    tok=$(curl -s --max-time 10 "https://${reg}/token?scope=repository:${owner}/${repo}:pull" | sed -n 's/.*"\(access_\)\?token":"\([^"]*\)".*/\2/p')
-    [ -z "$tok" ] && { c_err "$ns -> 获取令牌失败（不可达）"; continue; }
-    tmp=$(mktemp /tmp/acok_speed.XXXXXX)
-    start=$(date +%s.%N); last=$start; prev=0
-    curl -s --max-time 10 -H "Authorization: Bearer $tok" -o "$tmp" "https://${reg}/v2/${owner}/${repo}/blobs/${layerdig}" &
-    pid=$!
-    while kill -0 $pid 2>/dev/null; do
-      sz=0; [ -f "$tmp" ] && sz=$(stat -c%s "$tmp" 2>/dev/null || echo 0)
-      now=$(date +%s.%N); el=$(awk "BEGIN{printf \"%.1f\", $now-$start}")
-      dtt=$(awk "BEGIN{printf \"%.3f\", $now-$last}")
-      spd=0; awk "BEGIN{exit !($dtt>0)}" && spd=$(awk "BEGIN{printf \"%.2f\", ($sz-$prev)/($dtt)/1048576}")
-      avg=$(awk "BEGIN{printf \"%.2f\", $sz/($now-$start)/1048576}")
-      printf "\r    当前 %.2f MB/s  平均 %.2f MB/s  用时 %.1fs" "$spd" "$avg" "$el"
-      last=$now; prev=$sz; sleep 1
-    done
-    wait $pid; rc=$?
-    sz=0; [ -f "$tmp" ] && sz=$(stat -c%s "$tmp" 2>/dev/null || echo 0)
-    dt=$(awk "BEGIN{printf \"%.1f\", $(date +%s.%N)-$start}")
-    mbps=$(awk "BEGIN{printf \"%.2f\", $sz/$dt/1048576}")
-    printf "\n"
-    if [ "$sz" -gt 0 ]; then
-      note=""; [ "$rc" != "0" ] && note=" (10s 截断)"
-      c_ok "$ns -> 平均 %.2f MB/s%s (用时 %.1fs)" "$mbps" "$note" "$dt"
-    else
-      c_err "$ns -> 下载失败"
-    fi
-    rm -f "$tmp"
+  local ns="${IMAGE_NS:-ghcr.io/mrjg117}" img="${ns}/${repo}:${tag}"
+  echo; echo ">>> 测速当前源: $img"
+  local tmp start pid rc sz now el dtt spd avg last prev
+  tmp=$(mktemp /tmp/acok_speed.XXXXXX)
+  start=$(date +%s.%N); last=$start; prev=0
+  # 走 docker 自身鉴权(与真实 docker pull 同一条能通的路)，10s 截断，解析进度行算速度
+  timeout 10 docker pull "$img" >"$tmp" 2>&1 &
+  pid=$!
+  while kill -0 $pid 2>/dev/null; do
+    sz=$(grep -aoE '[0-9.]+MB/[0-9.]+MB' "$tmp" 2>/dev/null | tail -1 | awk -F/ '{print $1}' | sed 's/MB//' | awk '{printf "%d",($1+0)*1048576}')
+    now=$(date +%s.%N); el=$(awk "BEGIN{printf \"%.1f\",$now-$start}")
+    dtt=$(awk "BEGIN{printf \"%.3f\",$now-$last}")
+    spd=0; awk "BEGIN{exit !($dtt>0)}" && spd=$(awk "BEGIN{printf \"%.2f\",($sz-$prev)/$dtt/1048576}")
+    avg=$(awk "BEGIN{printf \"%.2f\",$sz/($now-$start)/1048576}")
+    printf "\r    当前 %.2f MB/s  平均 %.2f MB/s  用时 %.1fs" "$spd" "$avg" "$el"
+    last=$now; prev=$sz; sleep 1
   done
+  wait $pid; rc=$?
+  now=$(date +%s.%N); dt=$(awk "BEGIN{printf \"%.1f\",$now-$start}")
+  sz=$(grep -aoE '[0-9.]+MB/[0-9.]+MB' "$tmp" 2>/dev/null | tail -1 | awk -F/ '{print $1}' | sed 's/MB//' | awk '{printf "%d",($1+0)*1048576}')
+  mbps=$(awk "BEGIN{printf \"%.2f\",$sz/$dt/1048576}")
+  printf "\n"
+  if [ "$sz" -gt 0 ]; then
+    note=""; [ "$rc" != "0" ] && note=" (10s 截断)"
+    c_ok "$img -> 平均 %.2f MB/s%s (用时 %.1fs)" "$mbps" "$note" "$dt"
+  else
+    c_err "$img -> 拉取失败（不可达/未公开/无网络）"
+  fi
+  rm -f "$tmp"
 }
 
 # ---------- 2 安装向导 ----------
