@@ -229,7 +229,8 @@ print(max(ls,key=lambda x:x.get("size",0)).get("digest","") if ls else "")
       now=$(date +%s.%N); el=$(awk "BEGIN{printf \"%.1f\", $now-$start}")
       dtt=$(awk "BEGIN{printf \"%.3f\", $now-$last}")
       spd=0; awk "BEGIN{exit !($dtt>0)}" && spd=$(awk "BEGIN{printf \"%.2f\", ($sz-$prev)/($dtt)/1048576}")
-      printf "\r    已下载 %d MiB  当前 %.2f MB/s  用时 %ss" "$((sz/1048576))" "$spd" "$el"
+      avg=$(awk "BEGIN{printf \"%.2f\", $sz/($now-$start)/1048576}")
+      printf "\r    当前 %.2f MB/s  平均 %.2f MB/s  用时 %.1fs" "$spd" "$avg" "$el"
       last=$now; prev=$sz; sleep 1
     done
     wait $pid; rc=$?
@@ -239,7 +240,7 @@ print(max(ls,key=lambda x:x.get("size",0)).get("digest","") if ls else "")
     printf "\n"
     if [ "$sz" -gt 0 ]; then
       note=""; [ "$rc" != "0" ] && note=" (10s 截断)"
-      c_ok "$ns -> 平均 %.2f MB/s%s (%.1fs 内下载 %d MiB)" "$mbps" "$note" "$dt" "$((sz/1048576))"
+      c_ok "$ns -> 平均 %.2f MB/s%s (用时 %.1fs)" "$mbps" "$note" "$dt"
     else
       c_err "$ns -> 下载失败"
     fi
