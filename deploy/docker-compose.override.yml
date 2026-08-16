@@ -1,7 +1,10 @@
 # AzerothCore-OK —— 服务端覆盖配置（官方钦定唯一扩展点）
 # 只换镜像地址（我们的 ghcr.io 构建产物），其余编排全部沿用官方 docker-compose.yml。
 services:
-  # 数据库用官方 mysql:8.4，不替换（官方即此镜像，无自建 db 镜像）
+  # 数据库镜像：默认用构建时同步到本仓 ghcr 的 mysql:8.4（部署机直连 ghcr 即可拉，免走 Docker Hub）
+  # 自定义：在 .env 设 DB_IMAGE=你的镜像（如私有仓库的 mysql:8.4）
+  ac-database:
+    image: ${DB_IMAGE:-ghcr.io/mrjg117/ac-wotlk-mysql:8.4}
   ac-worldserver:
     image: ${IMAGE_NS:-ghcr.io/mrjg117}/ac-wotlk-worldserver:latest
     environment:
