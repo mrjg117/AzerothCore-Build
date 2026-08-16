@@ -179,10 +179,11 @@ set_ns(){
   [ -f "$WORK_DIR/.env" ] && set_env IMAGE_NS "$IMAGE_NS"
 }
 speed_test(){
-  local repo=ac-wotlk-worldserver tag=latest
-  local ns="${IMAGE_NS:-ghcr.io/mrjg117}" img="${ns}/${repo}:${tag}"
+  local repo=ac-wotlk-worldserver tag=latest ns img tmp
+  ns="${IMAGE_NS:-ghcr.io/mrjg117}"
+  img="${ns}/${repo}:${tag}"
   echo; echo ">>> 测速当前源: $img"
-  local tmp start pid rc sz now el dtt spd avg last prev
+  local start pid rc sz now el dtt spd avg last prev
   tmp=$(mktemp /tmp/acok_speed.XXXXXX)
   start=$(date +%s.%N); last=$start; prev=0
   # 走 docker 自身鉴权(与真实 docker pull 同一条能通的路)，10s 截断，解析进度行算速度
@@ -190,6 +191,7 @@ speed_test(){
   pid=$!
   while kill -0 $pid 2>/dev/null; do
     sz=$(grep -aoE '[0-9.]+MB/[0-9.]+MB' "$tmp" 2>/dev/null | tail -1 | awk -F/ '{print $1}' | sed 's/MB//' | awk '{printf "%d",($1+0)*1048576}')
+    [ -z "$sz" ] && sz=0
     now=$(date +%s.%N); el=$(awk "BEGIN{printf \"%.1f\",$now-$start}")
     dtt=$(awk "BEGIN{printf \"%.3f\",$now-$last}")
     spd=0; awk "BEGIN{exit !($dtt>0)}" && spd=$(awk "BEGIN{printf \"%.2f\",($sz-$prev)/$dtt/1048576}")
@@ -200,6 +202,7 @@ speed_test(){
   wait $pid; rc=$?
   now=$(date +%s.%N); dt=$(awk "BEGIN{printf \"%.1f\",$now-$start}")
   sz=$(grep -aoE '[0-9.]+MB/[0-9.]+MB' "$tmp" 2>/dev/null | tail -1 | awk -F/ '{print $1}' | sed 's/MB//' | awk '{printf "%d",($1+0)*1048576}')
+  [ -z "$sz" ] && sz=0
   mbps=$(awk "BEGIN{printf \"%.2f\",$sz/$dt/1048576}")
   printf "\n"
   if [ "$sz" -gt 0 ]; then
